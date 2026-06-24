@@ -28,7 +28,7 @@ source "$SCRIPT_DIR/lib.sh"
 
 DB_NAME="$(normalize_db_name "$PROJECT_NAME")"
 
-for module in symlink apt nginx mysql php nginx-site nodejs database deps permissions finish cli; do
+for module in symlink apt nginx mysql php nginx-site nodejs database deps permissions github finish cli git; do
     # shellcheck source=/dev/null
     source "$SCRIPT_DIR/${module}.sh"
 done
@@ -53,8 +53,10 @@ run_module "Nginx (пакет)" install_nginx
 run_module "MySQL 8.0" install_mysql
 run_module "PHP-FPM" install_php
 run_module "Node.js" install_nodejs
+run_module "Git" install_git
 run_module "Nginx (конфиг проекта)" configure_nginx_site
 run_module "База данных и .env" setup_database
 run_module "Зависимости и миграции" process_app_dependencies
 run_module "Права доступа" setup_permissions
+run_module "GitHub SSH" setup_github_ssh
 run_module "Итог" print_summary

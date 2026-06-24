@@ -16,9 +16,11 @@ print_install_help() {
   mysql        MySQL 8.0 (mysql-server-8.0)
   php          PHP-FPM и расширения
   nodejs       Node.js и npm
+  git          Git (система контроля версий)
   nginx-site   конфиг nginx для проекта
   database     база данных и .env (алиас: db)
   deps         composer, npm, миграции
+  github       настройка SSH-ключей для GitHub
   permissions  права на assets (алиас: perms)
   finish       итоговый вывод
 
@@ -53,6 +55,10 @@ run_install_module() {
             log ">>> Модуль: php"
             install_php
             ;;
+        git)
+            log ">>> Модуль: git"
+            install_git
+            ;;
         nodejs|node)
             log ">>> Модуль: nodejs"
             install_nodejs
@@ -73,13 +79,17 @@ run_install_module() {
             log ">>> Модуль: permissions"
             setup_permissions
             ;;
+        github)
+            log ">>> Модуль: github"
+            setup_github_ssh
+            ;;
         finish|summary)
             log ">>> Модуль: finish"
             print_summary
             ;;
         *)
             echo "Неизвестный модуль: $1" >&2
-            echo "Доступные: symlink apt nginx mysql php nodejs nginx-site database deps permissions finish" >&2
+            echo "Доступные: symlink apt nginx mysql php nodejs git nginx-site database deps github permissions finish" >&2
             exit 1
             ;;
     esac

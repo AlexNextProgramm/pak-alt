@@ -30,7 +30,7 @@ class View extends AjaxController
         }
 
         $client = new Client();
-        $result = $client->getMessage($uid);
+        $result = $client->getMessage($uid, keepUnread: true);
 
         if (!$result['success']) {
             return [

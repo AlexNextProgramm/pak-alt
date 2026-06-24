@@ -4,7 +4,7 @@ install_php() {
     log "Проверка PHP-FPM и расширений..."
     install_packages \
         php-fpm php-cli php-mysql php-mbstring php-xml php-curl \
-        php-zip php-gd php-bcmath php-json php-tokenizer
+        php-zip php-gd php-bcmath php-json php-tokenizer php-imap
 
     local ini
     local php_fpm_ini php_cli_ini

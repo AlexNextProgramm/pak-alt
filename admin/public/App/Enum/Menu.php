@@ -9,6 +9,7 @@ class Menu
     const HOME = 1;
     const VARIABLES = 2;
     const COMPANY = 3;
+    const ZASTRAKHOVANNYE = 4;
     const CRON_REPORT = 8;
     const DOCUMENTATION = 9;
     const MAIL = 10;
@@ -18,6 +19,7 @@ class Menu
         return [
             self::HOME => (object)['url' => '/', 'name' => 'Главная', 'icon' => 'menu.home'],
             self::COMPANY => (object)['url' => '/company', 'name' => 'Компании', 'icon' => 'menu.company'],
+            self::ZASTRAKHOVANNYE => (object)['url' => '/zastrakhovannye', 'name' => 'Застрахованные', 'icon' => 'menu.zastrakhovannye'],
             self::MAIL => (object)['url' => '/mail', 'name' => 'Почта', 'icon' => 'menu.mail'],
             self::VARIABLES => (object)['url' => '/variables', 'name' => 'Переменные', 'icon' => 'menu.variables'],
             self::CRON_REPORT => (object)['url' => '/cron-report', 'name' => 'Отчёт крона', 'icon' => 'menu.cron-report'],

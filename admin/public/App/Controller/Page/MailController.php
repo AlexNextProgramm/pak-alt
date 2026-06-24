@@ -33,7 +33,7 @@ class MailController extends PageController
         }
 
         $client = new Client();
-        $result = $client->getAttachment($uid, $part);
+        $result = $client->getAttachment($uid, $part, keepUnread: true);
 
         if (!$result['success']) {
             RE::setHttp(RE::STATUS_HTTP::NOT_FOUND);

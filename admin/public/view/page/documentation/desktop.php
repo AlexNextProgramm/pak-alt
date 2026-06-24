@@ -74,9 +74,10 @@
     <ul>
         <li>Просмотр списка компаний</li>
         <li>Добавление новой компании</li>
-        <li>Редактирование данных компании</li>
+        <li>Редактирование данных компании (название, email)</li>
         <li>Управление тарифами и условиями</li>
     </ul>
+    <p><strong>Email компании</strong> используется фоновым cron-задачей: по адресу отправителя система определяет, от какой компании пришло письмо с вложениями. Email должен совпадать с адресом в поле «От» входящего письма.</p>
 
     <h3>2.3. Заявки</h3>
     <p><strong>Суть:</strong> Обработка заявок от клиентов.</p>
@@ -93,6 +94,7 @@
     <ul>
         <li>Контактных данных (телефон, email, адрес, график, Telegram, WhatsApp)</li>
         <li>API-ключей (PlusOfon для SMS)</li>
+        <li>Подключения к почте IMAP (тип <code>imap</code>: host, port, username, password, encryption, verify_ssl, folder)</li>
     </ul>
     <p><strong>Правила:</strong></p>
     <ul>
@@ -118,14 +120,27 @@
     </ul>
     <p><strong>Защита форм:</strong> Каждая форма в админке защищена от подделки межсайтовых запросов — при отправке данных система проверяет специальный токен безопасности.</p>
 
+    <h3>2.6. Отчёт крона</h3>
+    <p><strong>Суть:</strong> Журнал запусков фоновой задачи загрузки вложений из почты.</p>
+    <p><strong>Что отображается:</strong></p>
+    <ul>
+        <li>Время запуска (<code>started_at</code>)</li>
+        <li>Количество обработанных писем от компаний (<code>emails_found</code>)</li>
+        <li>Текст ошибок (<code>errors</code>)</li>
+        <li>Статус: выполняется, успешно, завершено с ошибками, ошибка</li>
+    </ul>
+    <p>Подробная логика работы cron — в разделе <strong>7. Cron — загрузка вложений из почты</strong>.</p>
+
     <h2>3. Схема данных (бизнес-сущности)</h2>
 
     <table>
         <tr><th>Сущность</th><th>Таблица</th><th>Назначение</th></tr>
         <tr><td>Застрахованные</td><td><code>zastrakhovannye</code></td><td>Застрахованные лица и их полисы</td></tr>
-        <tr><td>Компании</td><td><code>company</code></td><td>Страховые компании-партнёры</td></tr>
-        <tr><td>Переменные</td><td><code>variable</code></td><td>Настройки сайта (контакты, API-ключи)</td></tr>
+        <tr><td>Компании</td><td><code>company</code></td><td>Страховые компании-партнёры (название, email отправителя)</td></tr>
+        <tr><td>Переменные</td><td><code>variable</code></td><td>Настройки сайта (контакты, API-ключи, IMAP)</td></tr>
         <tr><td>Фотографии</td><td><code>upload_photo</code></td><td>Изображения</td></tr>
+        <tr><td>Файлы из почты</td><td><code>upload_file</code></td><td>Вложения, загруженные cron-задачей из писем компаний</td></tr>
+        <tr><td>Журнал cron</td><td><code>cron_report</code></td><td>История запусков фоновой задачи загрузки вложений</td></tr>
         <tr><td>Пользователи админки</td><td><code>users</code></td><td>Администраторы системы</td></tr>
     </table>
 
@@ -165,7 +180,111 @@
     <h3>6.2. Загрузка файлов</h3>
     <p>Фотографии загружаются через модуль <code>Upload\Storage</code>. Файлы хранятся в <code>var/uploads/</code>, отдаются через маршрут <code>/uploads/*</code>.</p>
 
-    <h2>7. FAQ — частые вопросы</h2>
+    <h3>6.3. Почта IMAP</h3>
+    <p>Подключение к почтовому ящику для cron-задачи загрузки вложений. Настройки хранятся в переменных типа <code>imap</code> (миграция <code>6_imap.sql</code>). Используется модуль <code>Module\Imap\Client</code>.</p>
+
+    <h2>7. Cron — загрузка вложений из почты</h2>
+
+    <h3>7.1. Назначение</h3>
+    <p>Фоновая задача автоматически проверяет почтовый ящик, находит <strong>непрочитанные</strong> письма от компаний-партнёров (по email из таблицы <code>company</code>), скачивает вложения на сервер и сохраняет результат в базу данных.</p>
+    <p>Журнал запусков доступен в админке: раздел <strong>Отчёт крона</strong>.</p>
+
+    <h3>7.2. Требования</h3>
+    <ul>
+        <li>PHP-расширение <code>imap</code></li>
+        <li>Применённые миграции: <code>6_imap.sql</code> (переменные IMAP), <code>27_upload_file.sql</code> (таблица результатов)</li>
+        <li>Заполненные переменные <code>imap.*</code> в разделе «Переменные»</li>
+        <li>Компании в таблице <code>company</code> с корректным полем <code>email</code></li>
+        <li>Каталог <code>var/uploads/</code> с правами на запись</li>
+    </ul>
+
+    <h3>7.3. Запуск</h3>
+    <p>Скрипт: <code>script/php/cron</code></p>
+    <pre><code># Ручной запуск из корня проекта
+php script/php/cron
+
+# Пример crontab (каждые 15 минут)
+*/15 * * * * cd /path/to/pak-alt &amp;&amp; php script/php/cron &gt;&gt; log/cron.log 2&gt;&amp;1</code></pre>
+    <p>Точка входа подключает Pet framework через <code>script/php/bootstrap.php</code> (конфиг admin, autoload, БД). Бизнес-логика — класс <code>Module\Cron\EmailAttachmentJob</code> в <code>service/Module/Cron/</code>.</p>
+
+    <h3>7.4. Полный алгоритм работы</h3>
+    <ol>
+        <li><strong>Старт журнала.</strong> Создаётся запись в <code>cron_report</code> со статусом <code>running</code> и текущим временем <code>started_at</code>.</li>
+        <li><strong>Загрузка компаний.</strong> Из <code>company</code> выбираются записи, у которых <code>email</code> не пустой. Email нормализуется (нижний регистр, trim) и проверяется через <code>filter_var</code>. Формируется карта «email → company_id». Если подходящих компаний нет — задача завершается с ошибкой.</li>
+        <li><strong>Проверка IMAP.</strong> Модуль <code>Module\Imap\Client</code> читает настройки из переменных <code>imap.host</code>, <code>imap.port</code>, <code>imap.username</code>, <code>imap.password</code>, <code>imap.encryption</code>, <code>imap.verify_ssl</code>, <code>imap.folder</code> (по умолчанию <code>INBOX</code>). Если обязательные поля пусты — ошибка.</li>
+        <li><strong>Поиск писем.</strong> Выполняется IMAP-поиск с критерием <code>UNSEEN</code> (только непрочитанные). Лимит — <strong>без ограничения</strong> (<code>getMessages(0, 'UNSEEN')</code>): за один запуск обрабатываются все непрочитанные письма в папке.</li>
+        <li><strong>Фильтрация по отправителю.</strong> Для каждого письма из заголовка «От» извлекается email (форматы <code>name@domain.com</code> или <code>Имя &lt;name@domain.com&gt;</code>). Письмо обрабатывается только если email есть в карте компаний. Остальные пропускаются без изменений (остаются непрочитанными).</li>
+        <li><strong>Чтение письма.</strong> По UID запрашивается полное содержимое и список вложений. Если прочитать не удалось — ошибка пишется в журнал cron, письмо <strong>не</strong> помечается прочитанным.</li>
+        <li><strong>Проверка вложений.</strong> Если вложений нет — письмо пропускается, остаётся <code>UNSEEN</code> (будет проверяться снова при следующем запуске).</li>
+        <li><strong>Сохранение файлов.</strong> Для каждого вложения:
+            <ul>
+                <li>Каталог: <code>var/uploads/download/{email}/</code> (email санитизируется для файловой системы; каталог создаётся автоматически)</li>
+                <li>Имя файла: случайный префикс (16 hex-символов) + оригинальное имя вложения (очищенное от небезопасных символов)</li>
+                <li>Сохранение через <code>Module\Upload\Storage::saveContent()</code></li>
+            </ul>
+        </li>
+        <li><strong>Запись в БД.</strong> На каждое вложение создаётся строка в <code>upload_file</code>:
+            <ul>
+                <li><code>company_id</code> — ID компании-отправителя</li>
+                <li><code>path</code> — относительный путь к файлу (например <code>download/partner@mail.ru/a1b2c3d4_document.pdf</code>) или <code>NULL</code> при ошибке</li>
+                <li><code>exception</code> — текст ошибки или <code>NULL</code> при успехе</li>
+            </ul>
+        </li>
+        <li><strong>Пометка прочитанным.</strong> После обработки всех вложений письмо помечается флагом <code>\Seen</code> (прочитано), даже если часть вложений сохранилась с ошибкой. Письма без вложений и письма с ошибкой чтения <strong>не</strong> помечаются прочитанными.</li>
+        <li><strong>Завершение журнала.</strong> Запись <code>cron_report</code> обновляется: <code>emails_found</code> (сколько писем от компаний обработано), <code>errors</code> (текст ошибок через перевод строки или <code>NULL</code>), финальный статус.</li>
+    </ol>
+
+    <h3>7.5. Статусы cron_report</h3>
+    <table>
+        <tr><th>Статус</th><th>Когда выставляется</th></tr>
+        <tr><td><code>running</code></td><td>В момент старта задачи</td></tr>
+        <tr><td><code>success</code></td><td>Задача завершилась без ошибок</td></tr>
+        <tr><td><code>completed</code></td><td>Задача завершилась, но были частичные ошибки (например, не удалось скачать отдельное вложение)</td></tr>
+        <tr><td><code>error</code></td><td>Критическая ошибка: нет компаний с email, IMAP не настроен, нет связи с почтой и т.п.</td></tr>
+    </table>
+
+    <h3>7.6. Переменные IMAP</h3>
+    <table>
+        <tr><th>Имя</th><th>Значение по умолчанию</th><th>Назначение</th></tr>
+        <tr><td><code>imap.host</code></td><td>—</td><td>Адрес почтового сервера</td></tr>
+        <tr><td><code>imap.port</code></td><td><code>993</code></td><td>Порт</td></tr>
+        <tr><td><code>imap.username</code></td><td>—</td><td>Логин</td></tr>
+        <tr><td><code>imap.password</code></td><td>—</td><td>Пароль</td></tr>
+        <tr><td><code>imap.encryption</code></td><td><code>ssl</code></td><td>Шифрование: <code>ssl</code>, <code>tls</code> или <code>none</code></td></tr>
+        <tr><td><code>imap.verify_ssl</code></td><td><code>1</code></td><td>Проверка SSL-сертификата (<code>0</code> — отключить)</td></tr>
+        <tr><td><code>imap.folder</code></td><td><code>INBOX</code></td><td>Папка для проверки писем</td></tr>
+    </table>
+
+    <h3>7.7. Схема потока данных</h3>
+    <pre><code>Почтовый ящик (IMAP, UNSEEN)
+        ↓
+Фильтр: отправитель ∈ company.email
+        ↓
+Вложения → var/uploads/download/{email}/
+        ↓
+upload_file (company_id, path, exception)
+        ↓
+cron_report (журнал запуска)</code></pre>
+
+    <h3>7.8. Частые вопросы по cron</h3>
+
+    <p><strong>Сколько писем обрабатывается за один запуск?</strong></p>
+    <p>Все непрочитанные (<code>UNSEEN</code>) в выбранной папке. Лимит не установлен.</p>
+
+    <p><strong>Почему письмо не обрабатывается?</strong></p>
+    <ul>
+        <li>Email отправителя не совпадает ни с одной компанией в <code>company.email</code></li>
+        <li>Письмо уже прочитано (флаг <code>Seen</code>)</li>
+        <li>В письме нет вложений — оно остаётся непрочитанным и будет проверяться снова</li>
+    </ul>
+
+    <p><strong>Где лежат скачанные файлы?</strong></p>
+    <p>На диске: <code>var/uploads/download/{email}/</code>. Путь в БД — в таблице <code>upload_file.path</code>.</p>
+
+    <p><strong>Как добавить нового отправителя?</strong></p>
+    <p>Админка → Компании → указать email, совпадающий с адресом в поле «От» входящих писем.</p>
+
+    <h2>8. FAQ — частые вопросы</h2>
 
     <h3>Как добавить застрахованного?</h3>
     <p>Админка → Застрахованные → кнопка «+». Заполнить данные и сохранить.</p>
@@ -178,6 +297,9 @@
 
     <h3>Почему заявка не видна в админке?</h3>
     <p>Проверьте, что заявка была отправлена. Если проблема повторяется — проверьте логи сервера.</p>
+
+    <h3>Как настроить загрузку файлов из почты?</h3>
+    <p>Заполните переменные <code>imap.*</code>, добавьте email компаний, примените миграции и настройте crontab. Подробнее — раздел <strong>7. Cron — загрузка вложений из почты</strong>.</p>
         </article>
     </div>
 </div>

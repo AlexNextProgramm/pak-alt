@@ -9,6 +9,7 @@ use App\Controller\Page\DocumentationController;
 use App\Controller\Page\HomeController;
 use App\Controller\Page\MailController;
 use App\Controller\Page\VariablesController;
+use App\Controller\Page\ZastrakhovannyeController;
 use App\Form\Form;
 use App\Module\Auth;
 use App\Table\Datatable;
@@ -36,6 +37,7 @@ Router::middleware(
 )->set(
     Router::get('/', [HomeController::class, 'index']),
     Router::get('/company', [CompanyController::class, 'index']),
+    Router::get('/zastrakhovannye', [ZastrakhovannyeController::class, 'index']),
     Router::get('/mail', [MailController::class, 'index']),
     Router::get('/mail/attachment', [MailController::class, 'attachment']),
     Router::get('/variables', [VariablesController::class, 'index']),

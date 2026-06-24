@@ -271,7 +271,7 @@ class Client
     /**
      * @return array{success: bool, message?: array<string, mixed>, error?: string}
      */
-    public function getMessage(int $uid, ?string $folder = null): array
+    public function getMessage(int $uid, ?string $folder = null, bool $keepUnread = false): array
     {
         $connectResult = $this->connect($folder);
         if (!$connectResult['success']) {
@@ -300,6 +300,10 @@ class Client
             $message['body_text'] = $bodyData['body_text'];
             $message['body_html'] = $bodyData['body_html'];
             $message['attachments'] = $bodyData['attachments'];
+
+            if ($keepUnread) {
+                $this->markAsUnread($uid, $folder);
+            }
 
             return [
                 'success' => true,
@@ -396,7 +400,7 @@ class Client
     /**
      * @return array{success: bool, content?: string, error?: string}
      */
-    public function getAttachment(int $uid, string $partNumber, ?string $folder = null): array
+    public function getAttachment(int $uid, string $partNumber, ?string $folder = null, bool $keepUnread = false): array
     {
         $connectResult = $this->connect($folder);
         if (!$connectResult['success']) {
@@ -426,6 +430,10 @@ class Client
                     'success' => false,
                     'error' => 'Часть письма не найдена',
                 ];
+            }
+
+            if ($keepUnread) {
+                $this->markAsUnread($uid, $folder);
             }
 
             return [

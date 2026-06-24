@@ -1,0 +1,68 @@
+.page-zastrakhovannye {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  .block-header {
+    margin: 0 0 24px;
+  }
+
+  &__section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  &__section-head &__subtitle {
+    margin: 0 0 8px;
+  }
+
+  &__section-head &__hint {
+    margin: 0;
+  }
+
+  &__section {
+    width: 100%;
+  }
+
+  &__subtitle {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--dark-blue);
+  }
+
+  &__hint {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: var(--gray, #6b7280);
+  }
+
+  &__static {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dark-blue);
+    white-space: nowrap;
+  }
+
+  &__id {
+    width: 64px;
+    color: var(--gray, #6b7280);
+    white-space: nowrap;
+  }
+
+  .datatable-wrapper {
+    width: 100%;
+
+    table {
+      width: 100%;
+      table-layout: auto;
+    }
+  }
+
+  table {
+    width: 100%;
+  }
+}
