@@ -11,4 +11,4 @@ import './module/ui/photo-gallery'
 import './event/submit'
 import './event/table'
 
-import './img/icon/logo-195x195.svg'
+import './img/pak-alt.png'

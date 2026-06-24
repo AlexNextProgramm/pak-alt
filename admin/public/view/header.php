@@ -6,8 +6,8 @@ use App\Module\UI\UI;
     <div class="wrapper admin-header">
         <div class="admin-header__brand">
             <a class="admin-header__logo" href="/">
-                <img src="/<?= IMG ?>/logo-195x195.svg" alt="Admin" width="36" height="36">
-                <span class="admin-header__title">Admin</span>
+                <img src="/<?= IMG ?>/pak-alt.png" alt="PAK-Альтамед" width="36" height="36">
+                <span class="admin-header__title">PAK-Альтамед</span>
             </a>
         </div>
         <div class="admin-header__actions">
