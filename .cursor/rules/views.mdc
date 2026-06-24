@@ -1,0 +1,48 @@
+---
+description: PHP-шаблоны views — короткие теги, переменные, partials
+globs: "{admin,site}/public/view/**/*.php"
+alwaysApply: false
+---
+
+# Views (PHP-шаблоны)
+
+В `{admin,site}/public/view/` используем **короткие PHP-теги** — как в существующих шаблонах проекта.
+
+## Теги
+
+```php
+<? include __DIR__ . '/head.php' ?>
+<? view('layout') ?>
+
+<? if ($condition): ?>
+    ...
+<? elseif ($other): ?>
+    ...
+<? else: ?>
+    ...
+<? endif; ?>
+
+<? foreach ($items as $row): ?>
+    <?= htmlspecialchars($row['name']) ?>
+<? endforeach; ?>
+```
+
+- `<?` — include, if/foreach, вызовы без вывода
+- `<?=` — вывод значения (экранировать через `htmlspecialchars`, если это пользовательский текст)
+- **Не** использовать `<?php` / `<?php echo` в новых и правимых view-файлах
+
+## Переменные
+
+- Данные страницы передавать **одной структурой** из контроллера, например `$blog`, `$catalog`
+- Не использовать `$item` — конфликтует с `foreach ($menu as $item)` в меню
+- В partials — явные имена: `$blogCard`, `$blogVariant`, не общие `$item` / `$data`
+- Приведение типов и сборку массивов делать в контроллере/модуле, не во view
+
+## Пример
+
+```php
+<? foreach ($blog['items'] ?? [] as $blogCard): ?>
+    <? $blogVariant = 'grid'; ?>
+    <? include __DIR__ . '/../../partial/blog/card.php'; ?>
+<? endforeach; ?>
+```

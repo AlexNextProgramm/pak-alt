@@ -1,0 +1,191 @@
+.form-input{
+    display: flex;
+    flex-direction: column;
+    margin: 5px 2px;
+    width: 100%;
+    max-width: 500px;
+    position: relative;
+    label{
+        padding: 2px 5px;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--dark-blue);
+
+    }
+    input[ui=text-form], input[ui=password-form]{
+        outline: none;
+        padding: 7px 15px;
+        font-size: 16px;
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        margin-top: 5px;
+
+    }
+    input[data-error] {
+             border: 1px solid  var(--red) !important;
+    }
+    input[data-error] ~ span{
+        color: var(--red);
+        font-size: 11px;
+        margin-top: 5px;
+        font-weight: bold;
+        width: 100%;
+        display: flex;
+        justify-content: end;
+        align-items: center;
+
+        &::before{
+            content: '!';
+            font-size: 11px;
+            font-weight: bold;
+            border: 2px solid var(--red);
+            color: var(--red);
+            border-radius: 50%;
+            margin-right: 3px;
+            padding: 0px 6px;
+        }
+    }
+    .glass{
+        width: 20px;
+        height: 20px;
+        position: absolute;
+        right: 7px;
+        top: 36px;
+        cursor: pointer;
+
+        &-eye{
+            background-image: url('../img/icons/eye.svg');
+            background-position: center;
+            background-size: 27px 21px;
+            background-repeat: no-repeat;
+        }
+        &-eye-off{
+            background-image: url('../img/icons/eye-off.svg');
+            background-position: center;
+            background-size: 27px 21px;
+            background-repeat: no-repeat;
+        }
+    }
+}
+
+[data-class=switch]{
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    min-width: 50px !important;
+}
+[data-class=switch] input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    background-color: var(--line-2);
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.25s;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      height: 20px;
+      width: 20px;
+      background-color: white;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s;
+    }
+  }
+  
+  input:checked + .slider {
+    background-color: var(--average-blue);
+  }
+  
+  input:checked + .slider::before {
+    transform: translateX(20px);
+  }
+
+.form-switch {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-direction: row-reverse;
+  gap: 16px;
+  margin: 16px 0;
+  max-width: 500px;
+
+  &__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dark-blue);
+  }
+}
+
+.ui-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+
+  &__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__track {
+    display: block;
+    width: 44px;
+    height: 24px;
+    background: var(--line-2);
+    border-radius: 12px;
+    transition: background 0.25s;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s;
+    }
+  }
+
+  &__input:checked + &__track {
+    background: var(--average-blue);
+
+    &::after {
+      transform: translateX(20px);
+    }
+  }
+
+  &__input:focus-visible + &__track {
+    outline: 2px solid var(--average-blue);
+    outline-offset: 2px;
+  }
+
+  &__input:disabled + &__track {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

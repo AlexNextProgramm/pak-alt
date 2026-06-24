@@ -1,0 +1,7 @@
+log/**
+var/**
+.env
+.env.dev
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '2323';
+FLUSH PRIVILEGES;
+EXIT;

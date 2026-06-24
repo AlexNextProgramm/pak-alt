@@ -1,0 +1,60 @@
+.captha_block {
+    display: flex;
+    flex-direction: column;
+    margin: 5px;
+    position: relative;
+    width: 100%;
+    padding: 20px;
+    border-radius: 10px;
+    background: var(--tone);
+
+    #captchaCanvas{
+        border-radius: 10px;
+    }
+    .block_buttons {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        margin-top: 3px;
+        width: 100%;
+   
+        input[type=text] {
+            outline: none;
+            padding: 7px 15px;
+            font-size: 16px;
+            border: 1px solid var(--line-2);
+            border-radius: 10px;
+            margin-top: 5px;
+            width: 100%;
+        }
+        input[data-error] {
+            border: 1px solid var(--red) !important;
+        }
+
+        .refresh {
+            content: ' ';
+            width: 30px;
+            height: 30px;
+            background: none;
+            z-index: 9999;
+            cursor: pointer;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.7s;
+            background-image: url('../img/icons/refresh-cw.svg');
+            background-repeat: no-repeat;
+            background-size: 25px 21px;
+            background-position: center;
+            background-position-x: 3px;
+        }
+    }
+    .block_notArobot{
+        width: 30px;
+        height: 30px;
+    }
+    p{
+        color: var(--dark-blue);
+        font-weight: 500;
+        font-size: 14px !important;
+    }
+}

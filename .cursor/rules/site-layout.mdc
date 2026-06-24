@@ -1,0 +1,65 @@
+---
+description: Публичный сайт site/ — layout, breakpoints, views
+globs: site/**/*
+alwaysApply: false
+---
+
+# Site — публичный сайт
+
+Отдельное приложение в `site/`, скопировано с admin, но со своей архитектурой layout.
+
+## Layout (header → body → footer)
+
+```
+view/layout.php
+├── header.php      — лого + menu.php + burger (mobile)
+├── site-main       — контент страницы (desktop.php)
+└── footer.php      — навигация + copyright
+```
+
+Страница: `view/page/{name}/init.php` → `view('layout')` → `PageController` задаёт `$desktop`.
+
+## Breakpoints (SCSS)
+
+Файл `site/src/css/_breakpoints.scss`:
+
+| Mixin | Диапазон |
+|-------|----------|
+| `@include mobile` | < 768px (смартфон) |
+| `@include tablet` | 768–1023px (планшет) |
+| `@include tablet-up` | ≥ 768px |
+| `@include desktop` | ≥ 1024px (монитор) |
+
+## SCSS-структура
+
+| Файл | Назначение |
+|------|------------|
+| `_breakpoints.scss` | mixins mobile/tablet/desktop |
+| `_layout.scss` | `.site`, `.site-container`, `.site-main` |
+| `header.scss` | `.site-header`, burger |
+| `menu.scss` | `.site-nav` — горизонтально на tablet+, overlay на mobile |
+| `footer.scss` | `.site-footer` |
+| `colors.scss` | CSS-переменные layout (`--header-bg`, `--footer-text`) |
+| `page/{name}.scss` | стили конкретной страницы |
+
+## Меню
+
+- PHP: `App\Enum\Menu::data()` — пункты навигации
+- View: `view/menu.php` — `<nav class="site-nav">`
+- JS: `src/module/ui/menu.tsx` — burger toggle (mobile)
+
+## Новая страница
+
+1. `src/page/{name}.tsx` + `src/css/page/{name}.scss`
+2. `public/view/page/{name}/init.php` + `desktop.php`
+3. Route в `public/router/web.php`
+4. Пункт в `App/Enum/Menu.php`
+
+## Команды
+
+```bash
+cd site && npm run dev
+cd site && php pet serve
+```
+
+Login (`page/login/init.php`) — отдельный layout без header/footer.

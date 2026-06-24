@@ -1,0 +1,38 @@
+---
+description: Переменные (variable) — миграции и админка, удаление запрещено
+globs: migrations/**/*.sql,admin/**/Variable/**,admin/**/variables/**
+alwaysApply: false
+---
+
+# Переменные (variable)
+
+## Правила
+
+- **Добавление** — через миграцию (`INSERT`) или в админке (`/variables`, кнопка «+»)
+- **Удаление** — запрещено (ни в админке, ни в коде)
+- **Редактирование** — в админке можно менять только `value`; `type` и `name` фиксируются при создании
+
+## Новая переменная (миграция)
+
+```sql
+INSERT INTO `variable` (`type`, `name`, `value`) VALUES
+('contacts', 'phone', '');
+```
+
+Уникальность: `(type, name)`.
+
+## Использование на сайте
+
+```php
+use Module\Model\VariableModel;
+
+$model = new VariableModel(['type' => 'plusofon', 'name' => 'api_token']);
+$token = $model->isInfo() ? (string)$model->get('value') : '';
+```
+
+## Существующие типы
+
+| type | name | Назначение |
+|------|------|------------|
+| `contacts` | phone, email, address, schedule, telegram, whatsapp, max | Страница контактов |
+| `plusofon` | api_token | API-ключ PlusOfon (SMS) |

@@ -1,0 +1,48 @@
+:root {
+  // Brand scale — Bondi Blue (primary = 700)
+  --primary-50: #e6faff;
+  --primary-100: #cdf5fe;
+  --primary-200: #9bebfd;
+  --primary-300: #68e1fd;
+  --primary-400: #36d8fc;
+  --primary-500: #04cefb;
+  --primary-600: #03a5c9;
+  --primary-700: #027b97;
+  --primary-800: #025264;
+  --primary-900: #012932;
+  --primary-950: #011d23;
+
+  --color: var(--primary-700);
+  --max-width: 1200px;
+  --blue: var(--primary-100);
+  --average-blue: var(--primary-700);
+  --dark-blue: var(--primary-800);
+  --tone: #f0f4f8;
+  --line: #bdbdbd;
+  --line-2: #bfbfbf;
+  --footer-old: #a8a8a8;
+  --footer-background: var(--primary-700);
+  --disabled: #b1acac;
+
+  // Triad (Bondi Blue + warm accents)
+  --triad-1: var(--primary-700); // #027b97
+  --triad-2: #fc5703;
+  --triad-3: #fc0d68;
+
+  // Red shades
+  --red-orange: #fc5703;
+  --red-crimson: #971e02;
+  --red-magenta: #e617fc;
+
+  --red: var(--red-crimson);
+  --green: #319702;
+  --purple: var(--red-magenta);
+
+  --colors-theme-table-line: white;
+  --colors-theme-table-font-invert: var(--dark-blue);
+  --colors-theme-table: var(--average-blue);
+  --colors-theme-table-hover: var(--blue);
+  --colors-theme-table-font-invert: white;
+  --colors-theme-table-font: var(--dark-blue);
+  --colors-theme-table-line-hover: var(--primary-50);
+}

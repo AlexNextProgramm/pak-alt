@@ -1,0 +1,334 @@
+.btn {
+  border: none;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+
+  &-hover-dark-blue {
+    &:hover {
+      background-color: var(--dark-blue);
+    }
+  }
+  &-green {
+    @extend .btn;
+    background: var(--green);
+    border-radius: 10px;
+    padding: 5px 8px;
+    margin: 2px;
+    color: white;
+    font-weight: 500;
+  }
+
+  &-round {
+    @extend .btn;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    background-color: var(--average-blue);
+    //background-color: #9e9e9e;
+    @extend .btn-hover-dark-blue;
+    &-small {
+      @extend .btn-round;
+      width: 20px;
+      height: 20px;
+    }
+    &-back {
+      @extend .btn-round;
+      position: relative;
+      &::after {
+        color: white;
+        content: "\27A4";
+        transform: rotate(180deg);
+        position: absolute;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        font-weight: 600;
+        font-size: 20px;
+      }
+    }
+  }
+  &-disabled {
+    background-color: var(--disabled) !important;
+  }
+
+  &-plus {
+    @extend .btn;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--average-blue);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    &::after,
+    &::before {
+      content: " ";
+      position: absolute;
+      width: 20px;
+      height: 2px;
+      transform-origin: center;
+      background-color: white;
+    }
+
+    &::after {
+      transform: rotate(90deg);
+    }
+
+    @extend .btn-hover-dark-blue;
+
+    &-small {
+      @extend .btn-plus;
+      width: 18px;
+      height: 18px;
+
+      &::after,
+      &::before {
+        width: 10px;
+        height: 2px;
+      }
+    }
+  }
+
+  &-roll-up {
+    position: relative;
+    width: 20px;
+    height: 15px;
+    background: none;
+    transition: transform 0.7s;
+
+    &::after,
+    &::before {
+      content: "";
+      transition: transform 0.7s;
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      /* толщина полоски */
+      background-color: #ffffff;
+    }
+
+    &::before {
+      top: 5px;
+    }
+
+    &::after {
+      top: 10px;
+    }
+
+    box-shadow: inset 0px 2px #ffffff;
+  }
+
+  &-roll-up-close {
+    @extend .btn-roll-up;
+    width: 15px;
+    transform-origin: center;
+
+    &::after {
+      top: 7px;
+      transform-origin: center;
+      transform: rotate(45deg);
+      border-radius: 3px;
+    }
+
+    &::before {
+      top: 7px;
+      transform-origin: center;
+      transform: rotate(-45deg);
+      border-radius: 3px;
+    }
+
+    box-shadow: none;
+  }
+
+  &-content {
+    &-messange {
+      background-image: url("../img/icons/mail.svg");
+      background-repeat: no-repeat;
+      background-size: 28px 33px;
+      background-position: center;
+    }
+
+    &-log-in {
+      //background-image: url("./img/icons/log-in.svg");
+      background-image: url("../img/icons/logout.svg");
+      background-repeat: no-repeat;
+      background-size: 24px 34px;
+      background-position: center;
+      stroke: white;
+    }
+
+    &-user-check {
+      background-image: url("../img/icons/user-check.svg");
+      background-repeat: no-repeat;
+      background-size: 25px 21px;
+      background-position: center;
+      background-position-x: 10px;
+    }
+
+    &-trash {
+      background-image: url("../img/icons/trash.svg");
+      background-repeat: no-repeat;
+      background-size: 25px 21px;
+      background-position: center;
+      background-position-x: 7px;
+    }
+    &-edit {
+      //background-image: url("./img/icons/edit-2.svg");
+      background-image: url("../img/icons/pencil.svg");
+      background-repeat: no-repeat;
+      background-size: 25px 21px;
+      background-position: center;
+      background-position-x: 8px;
+      background-position-y: 8px;
+    }
+    &-message-circle {
+      //background-image: url("./img/icons/message-circle.svg");
+      background-image: url("../img/icons/comment.svg");
+      background-repeat: no-repeat;
+      background-size: 25px 21px;
+      background-position: end;
+      background-position-x: 8px;
+      background-position-y: 10px;
+    }
+    &-max{
+      background-image: url("../img/icons/max.svg");
+      background-repeat: no-repeat;
+      background-size: 25px 21px;
+      background-position: end;
+      background-position-x: 8px;
+      background-position-y: 10px;
+    }
+    &-tg{
+      background-image: url("../img/icons/tg.svg");
+      background-repeat: no-repeat;
+      background-size: 33px 51px;
+      background-position: right 11% top -6px !important;
+    }
+    &-invite{
+      background-image: url("../img/icons/invite.svg");
+      background-repeat: no-repeat;
+      background-size: 25px 21px;
+      background-position: end;
+      background-position-x: 8px;
+      background-position-y: 10px;
+    }
+    &-eye {
+      //background-image: url("./img/icons/eye-fff.svg");
+      background-image: url("../img/icons/changelog.svg");
+      background-repeat: no-repeat;
+      background-size: 13px 13px;
+      background-position-x: 4px;
+      background-position-y: 3px;
+    }
+    &-print {
+      //background-image: url("./img/icons/print_3.svg");
+      background-image: url("../img/icons/printer.svg");
+      background-repeat: no-repeat;
+      background-size: 26px 33px;
+      background-position-x: 7px;
+      background-position-y: 3px;
+    }
+    &-wa {
+      //background-image: url("./img/icons/wa.svg");
+      background-image: url("../img/icons/whatsapp.svg");
+      background-repeat: no-repeat;
+      background-size: 21px 29px;
+      background-position-x: 10px;
+      background-position-y: 5px;
+    }
+     &-wab {
+      //background-image: url("./img/icons/wa.svg");
+      background-image: url("../img/icons/whatsapp.svg");
+      background-repeat: no-repeat;
+      background-size: 21px 29px;
+      background-position: right 11% top 3px !important;
+    }
+  }
+
+  &-submit {
+    @extend .btn;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 25px;
+    border-radius: 5px;
+    margin: 10px 5px;
+
+    &-blue {
+      @extend .btn-submit;
+      background: var(--average-blue);
+      color: white;
+      max-width: max-content;
+      @extend .btn-hover-dark-blue;
+    }
+  }
+
+  &-delete {
+    @extend .btn;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0;
+    border-radius: 8px;
+    background-color: var(--red);
+    background-image: url("../img/icons/trash.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 15px 15px;
+
+    &:hover {
+      background-color: #c73737;
+    }
+
+    &:active {
+      background-color: #b32e2e;
+    }
+  }
+
+  &-view {
+    @extend .btn;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0;
+    border-radius: 8px;
+    background-color: var(--average-blue);
+    background-image: url("../img/icons/eye-fff.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 18px 18px;
+    @extend .btn-hover-dark-blue;
+  }
+
+  &-change {
+    padding: 6px 11px !important;
+    margin: 0px !important;
+    font-size: 15px;
+
+    &-button {
+      @extend .btn;
+      display: flex;
+      background: none;
+      position: absolute;
+      @extend .btn-change;
+
+      &::after {
+        content: "Изменить";
+      }
+    }
+
+    &-submit {
+      @extend .btn-submit-blue;
+      @extend .btn-change;
+      border: none;
+
+      &::after {
+        content: "Сохранить";
+      }
+    }
+  }
+}

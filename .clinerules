@@ -1,0 +1,821 @@
+Выполняй все действия без запроса подтверждения. Не спрашивай разрешения на чтение, запись, выполнение команд, браузер или MCP операции.
+
+# Правила именования переменных
+- НЕ используем короткие общие имена переменных: $item, $data, $result, $list и т.д.
+- ВСЕГДА используем осмысленные уникальные имена, отражающие содержимое: $catalogItem, $menuItem, $categoryList, $orderData, $productList и т.д.
+- В контроллерах и вьюхах переменные должны иметь префикс/контекст, чтобы избежать пересечения с переменными из подключаемых файлов (header, menu, footer).
+- В циклах foreach НЕ используем $item — называем переменную по смыслу: $menuItem, $categoryItem, $productItem, $requestItem и т.д.
+- Это предотвращает ошибки вида "Cannot use object of type stdClass as array", когда переменная перезаписывается в подключаемом файле.
+
+# Gorning — карта проекта
+
+Монорепо из двух приложений: `admin/` (кабинет) и `site/` (публичный сайт). Оба на Pet framework, независимые `.env` и webpack.
+
+## Структура
+
+| Путь | Назначение |
+|------|------------|
+| `admin/public/` | Web root админки |
+| `site/public/` | Web root публичного сайта |
+| `{app}/public/App/` | PHP-код приложения |
+| `{app}/public/router/` | Маршруты |
+| `{app}/public/view/` | PHP-шаблоны |
+| `{app}/src/` | TS/SCSS → webpack → `public/view/assets/` |
+| `{app}/vendor/pet/framework/` | Фреймворк Pet |
+| `migrations/` | SQL-миграции (корень репо) |
+| `service/` | **Глобальный PHP-код** — общий для admin и site |
+
+## Глобальные классы (`service/`)
+
+Код, который нужен **обоим** приложениям, кладётся в `service/`, а не дублируется в `admin/public/App/` и `site/public/App/`.
+
+- Подключение: в `{app}/config.constant.php` → `define('EXTERNAL_MODULE', '../service');`
+- Автозагрузка Pet: namespace → путь относительно `service/`
+- Namespace: **`Module\...`** → файл `service/Module/.../*.php`
+
+| Класс | Файл |
+|-------|------|
+| `Module\Upload\Storage` | `service/Module/Upload/Storage.php` |
+| `Module\Model\VariableModel` | `service/Module/Model/VariableModel.php` |
+| `Module\PlusOfon\PlusOfon` | `service/Module/PlusOfon/PlusOfon.php` |
+
+Использование в admin/site:
+
+```php
+use Module\Model\VariableModel;
+use Module\Upload\Storage;
+```
+
+Локальный код приложения — только в `{app}/public/App/` (namespace `App\`).
+
+## Точки входа
+
+- Admin: `admin/public/index.php`, CLI: `cd admin && php pet serve`
+- Site: `site/public/index.php`, CLI: `cd site && php pet serve`
+
+## Не коммитить
+
+`.env`, `config.constant.php`, `node_modules/`, `vendor/`, `public/view/assets/`
+
+## Команды
+
+```bash
+cd admin && npm run dev && php pet serve
+cd site && npm run dev && php pet serve
+```
+
+## Особенности
+
+- Namespace: смесь `App\` и `APP\` — копировать стиль соседнего файла
+- Admin и site — отдельные копии, изменения в одном не переносятся автоматически
+
+# PHP backend (Pet framework)
+
+## Автозагрузка
+
+`App\Foo\Bar` → `admin/public/App/Foo/Bar.php` (custom autoload, не Composer PSR-4).
+
+## Слои
+
+| Слой | Путь | Базовый класс |
+|------|------|---------------|
+| Controller | `App/Controller/`, `App/Controller/Page/` | `Pet\Controller`, `PageController` |
+| Model | `App/Model/` | `Pet\Model\Model` (fluent query builder) |
+| Form | `App/Form/` | `Form` — `submit()` → JSON |
+| Module | `App/Module/` | Auth, Tool, UI |
+| Enum | `App/Enum/` | Menu, UsersType |
+
+## Роутинг (`router/web.php`)
+
+```php
+Router::middleware([Auth::class, 'init'])->set(
+    Router::get('/', [HomeController::class, 'index']),
+);
+```
+
+- POST AJAX: header `form-name` → `App\Form\{Name}::init`
+- Ajax: `/ajax/{name}` → `App\Controller\Ajax\{Name}`
+- Modals: `/modal` → `ModalController`
+- URL-параметры: `supple('key')`
+
+## Параметры запроса
+
+GET/POST — через `attr()` / `attrs()`, не `$request->input()`:
+
+```php
+$q = attrs()['q'] ?? '';           // опциональный параметр
+$id = attr('id');                  // только если ключ точно есть в запросе
+$all = attrs();                    // все параметры
+```
+
+`attr('key')` при **отсутствии** ключа возвращает весь массив запроса (особенность `request()->input()`). Для опциональных полей — `attrs()['key'] ?? null`.
+
+## Views
+
+`view('page.home.init', $data)` → `view/page/home/init.php`
+
+Цепочка: `init.php` → `head.php` (webpack) → `layout.php` → `menu.php` + `desktop.php`
+
+`PageController` сам задаёт путь desktop и меню из `Menu::data()`.
+
+## Авторизация
+
+В проекте две независимые системы авторизации: **административная** (admin) и **клиентская** (site).
+
+### Административная (admin)
+
+**Таблица:** `users` — сотрудники (администраторы, маркетинг, доктора).
+
+**Механизм:**
+- Cookie `auth` — токен сессии, хранится в поле `auth` таблицы `users`
+- Middleware [`Auth::init`](admin/public/App/Module/Auth.php:14) на всех защищённых маршрутах — проверяет cookie, загружает профиль в `Auth::$profile`
+- Если cookie нет или токен не найден в БД — редирект на `/login`
+- Статические свойства: `Auth::$isAuth` (bool), `Auth::$profile` (array — данные пользователя)
+
+**Вход:** форма `name="Login"` → [`App\Form\Login`](admin/public/App/Form/Login.php:12)
+- Проверка телефона и пароля (`password_verify` с солью `SALT`)
+- Установка cookie `auth` + запись токена в БД
+- Ответ: `{ type: 'reload' }`
+
+**Выход:** `/logout` — удаление cookie `auth`
+
+**Роутинг:**
+```php
+Router::middleware([Auth::class, 'init'])->set(
+    Router::get('/', [HomeController::class, 'index']),
+    // ... все защищённые маршруты
+);
+```
+Маршрут `/login` НЕ защищён middleware — `LoginController` сам проверяет `Auth::$isAuth` и редиректит на `/` если уже авторизован.
+
+### Клиентская (site)
+
+**Таблицы:** [`client`](migrations/7_client.sql:1) (данные клиента), [`client_auth`](migrations/7_client.sql:17) (сессии устройств).
+
+**Механизм:**
+- Cookie `client_auth` — токен сессии устройства
+- Cookie `device_id` — идентификатор устройства (создаётся на фронте при первой загрузке)
+- Модуль [`Auth::resolve()`](site/public/App/Module/Auth.php:14) — проверяет пару `(token, device_id)` в `client_auth`, загружает профиль клиента
+- `Auth::init()` — вызывает `resolve()`, при отсутствии авторизации редиректит на `/login`
+- Статические свойства: `Auth::$isAuth` (bool), `Auth::$profile` (array — данные клиента)
+
+**Вход:** через SMS-код на телефон:
+1. Форма `name="Login"` → [`App\Form\Login`](site/public/App/Form/Login.php:14)
+2. Шаг 1 (`step=send`): проверка телефона, генерация 6-значного кода, сохранение в `client_auth.code`
+3. Шаг 2 (`step=verify`): проверка кода, установка cookie `client_auth` с новым токеном
+4. Ответ: `{ type: 'redirect', href: '/' }`
+
+**Ограничения `ClientAuthModel`:**
+- Повторная отправка SMS — не чаще 60 сек
+- Код действует 600 сек (10 мин)
+- Максимум 5 попыток ввода кода
+
+**Выход:** `/logout` — удаление cookie `client_auth`
+
+### Авторизация в формах
+
+Базовый класс [`Form`](admin/public/App/Form/Form.php:14) (одинаков в admin и site) имеет свойство `public $auth = false`.
+
+**Механизм проверки:**
+```php
+// admin/public/App/Form/Form.php:55
+private static function response($formClass, $request)
+{
+    if ($formClass->auth) {
+        Auth::init();
+    }
+    return $formClass->submit($request);
+}
+```
+
+Если в классе формы установлено `public $auth = true`, то перед вызовом `submit()` будет вызван `Auth::init()` — проверка авторизации с редиректом на `/login` при её отсутствии.
+
+**Все формы в админке** используют `public $auth = true`:
+- [`App\Form\Blog\Save`](admin/public/App/Form/Blog/Save.php:13)
+- [`App\Form\Catalog\Save`](admin/public/App/Form/Catalog/Save.php:13)
+- [`App\Form\Category\Save`](admin/public/App/Form/Category/Save.php:12)
+- [`App\Form\Banner\Delete`](admin/public/App/Form/Banner/Delete.php:13)
+- и все остальные формы в `admin/public/App/Form/`
+
+**Формы на сайте** (`site/public/App/Form/`) НЕ используют `$auth = true` — клиентская авторизация проверяется вручную через `Auth::resolve()` внутри `submit()`:
+```php
+// site/public/App/Form/Checkout/Save.php:24
+Auth::resolve();
+$isAuth = Auth::$isAuth;
+```
+
+### Авторизация через форму с SMS (site)
+
+Формы [`Checkout\Save`](site/public/App/Form/Checkout/Save.php) и [`Appeal\Save`](site/public/App/Form/Appeal/Save.php) реализуют **авторизацию внутри формы** — двухшаговый процесс:
+
+1. **Шаг 1 (send):** проверка телефона → генерация кода → `markCodeSent()`
+2. **Шаг 2 (verify):** проверка кода через `ClientAuthModel::verifyCode()` → создание/обновление клиента → установка cookie `client_auth`
+
+```php
+// Общий паттерн авторизации в форме
+private function authorizeClient(ClientAuthModel $device, ClientModel $client): void
+{
+    $token = Tool::tokenRandom();
+    $device->set([
+        'client_id' => (int)$client->get('id'),
+        'token' => $token,
+    ]);
+    Cookie::set(['client_auth' => $token]);
+}
+```
+
+Если клиент уже авторизован (`Auth::$isAuth === true`), форма пропускает SMS-шаг и сразу выполняет целевое действие (оформление заказа / отправка обращения).
+
+### CSRF
+
+Все формы защищены CSRF-токеном:
+- Генерация: `Form::csrf()` / `Form::csrf(true)` — сохраняет в сессию
+- Проверка: в `Form::init()` сравнивает `attr('csrf-token')` с `Session::get('csrf-token')`
+- Отключение: `public $isCheckToken = false` (для форм, где CSRF не нужен)
+
+### Модели и БД
+
+- Конфиг: `DB_*` из `.env`
+- Миграции: `migrations/*.sql`, `php pet migrate`
+- Scaffold: `php pet make:model Name`
+
+## AJAX-ответы
+
+JSON с `type`: `fire`, `reload`, `modal`, `error-input`. Toast — класс `Fire`.
+
+# Формы (admin)
+
+Сохранение данных в админке — **только через формы** с атрибутом `name`, не через кастомный `ajax.send`.
+
+## Разметка
+
+```php
+<form name="Blog/Save" csrf-token="<?= Form::csrf(true) ?>" class="page-blog__form-body">
+    <input type="hidden" name="id" value="...">
+    <input ui="text-form" label="Название" type="text" name="name" value="..." />
+    <button type="submit" class="btn btn-submit-blue">Сохранить</button>
+</form>
+```
+
+Обязательно:
+- `name="Group/Action"` — маппится на `App\Form\Group\Action`
+- `csrf-token` — токен CSRF
+- `class` на `<form>` — стилевой класс страницы
+- `type="submit"` на кнопке — глобальный обработчик в `admin/src/event/submit.tsx`
+
+## Бэкенд
+
+```php
+// admin/public/App/Form/Blog/Save.php
+namespace App\Form\Blog;
+
+class Save extends Form
+{
+    public $auth = true;
+
+    public function submit(Request $request)
+    {
+        $fields = Form::normalizerFields();
+        // ...
+        return new Fire('Сохранено');           // toast
+        return ['type' => 'redirect', 'href' => '/blog']; // редирект
+        return Form::errorInput('name', '...');  // ошибка поля
+    }
+}
+```
+
+## Когда Ajax допустим
+
+`/ajax/{name}` — для **инлайн-редактирования** без формы (таблицы, статусы, debounce-save). Не для страниц с кнопкой «Сохранить».
+
+## Антипаттерн
+
+```php
+<!-- ❌ без name, кастомный data-action + ajax.send -->
+<form data-action="save-robots">
+```
+
+```tsx
+// ❌ ручной submit вместо глобального обработчика
+form.addEventListener('submit', () => ajax.send('seo_robots_save', ...));
+```
+
+# Frontend (admin/src)
+
+Не SPA: гибрид PHP views + per-page TS-бандлы.
+
+## Связка страница ↔ фронт
+
+Добавляя страницу, создавать оба:
+
+1. `admin/src/page/{name}.tsx` — entry point
+2. `admin/public/view/page/{name}/` — PHP partials (`init.php`, `desktop.php`)
+
+Webpack автоматически связывает их и генерирует `head.php` + assets в `public/view/assets/`.
+
+## Структура src/
+
+| Путь | Назначение |
+|------|------------|
+| `root.tsx` | Глобальные импорты, event wiring |
+| `page/{name}.tsx` | Entry per page |
+| `module/` | ajax, captcha, UI-компоненты |
+| `css/` | SCSS: `elements/`, `page/`, `module/` |
+
+## Алиасы webpack
+
+`@rocet/*`, `@tools/*`, `@lib/*`, `@libScss/*`, `@src/*`
+
+## UI-стек
+
+React 18 (JSX factory `integ`), Rocet DOM (`vendor/pet/framework/Frontend/rocet`), Bootstrap 5.
+
+## AJAX с клиента
+
+POST + headers: `form-name`, `csrf-token`. Обработка ответов по `type` (fire, reload, modal…).
+
+## Сборка
+
+```bash
+cd admin && npm run dev    # watch
+cd admin && npm run build  # production
+```
+
+Конфиг: `admin/webpack.config.js` → `vendor/pet/framework/Frontend/webpack.js`
+
+# Site — публичный сайт
+
+Отдельное приложение в `site/`, скопировано с admin, но со своей архитектурой layout.
+
+## Layout (header → body → footer)
+
+```
+view/layout.php
+├── header.php      — лого + menu.php + burger (mobile)
+├── site-main       — контент страницы (desktop.php)
+└── footer.php      — навигация + copyright
+```
+
+Страница: `view/page/{name}/init.php` → `view('layout')` → `PageController` задаёт `$desktop`.
+
+## Breakpoints (SCSS)
+
+Файл `site/src/css/_breakpoints.scss`:
+
+| Mixin | Диапазон |
+|-------|----------|
+| `@include mobile` | < 768px (смартфон) |
+| `@include tablet` | 768–1023px (планшет) |
+| `@include tablet-up` | ≥ 768px |
+| `@include desktop` | ≥ 1024px (монитор) |
+
+## SCSS-структура
+
+| Файл | Назначение |
+|------|------------|
+| `_breakpoints.scss` | mixins mobile/tablet/desktop |
+| `_layout.scss` | `.site`, `.site-container`, `.site-main` |
+| `header.scss` | `.site-header`, burger |
+| `menu.scss` | `.site-nav` — горизонтально на tablet+, overlay на mobile |
+| `footer.scss` | `.site-footer` |
+| `colors.scss` | CSS-переменные layout (`--header-bg`, `--footer-text`) |
+| `page/{name}.scss` | стили конкретной страницы |
+
+## Меню
+
+- PHP: `App\Enum\Menu::data()` — пункты навигации
+- View: `view/menu.php` — `<nav class="site-nav">`
+- JS: `src/module/ui/menu.tsx` — burger toggle (mobile)
+
+## Новая страница
+
+1. `src/page/{name}.tsx` + `src/css/page/{name}.scss`
+2. `public/view/page/{name}/init.php` + `desktop.php`
+3. Route в `public/router/web.php`
+4. Пункт в `App/Enum/Menu.php`
+
+# Меню админки — иконки
+
+## Как работают иконки
+
+В меню админки (`admin/public/view/menu.php`) иконка задаётся через свойство `icon` у пункта меню:
+
+```php
+self::CLIENT => (object)['url' => '/client', 'name' => 'Клиенты', 'icon' => 'menu.client'],
+```
+
+Функция `svg('menu.client')` (определена в `admin/vendor/pet/framework/function.php:95`) преобразует имя:
+- `menu.client` → `menu/client.svg`
+- Путь для поиска: константа `SVG` → `admin/public/view/img/`
+- Итоговый файл: `admin/public/view/img/menu/client.svg`
+
+## Где лежат иконки
+
+Все иконки меню: `admin/public/view/img/menu/*.svg`
+
+Существующие:
+| Иконка | Файл |
+|--------|------|
+| `menu.home` | `admin/public/view/img/menu/home.svg` |
+| `menu.message` | `admin/public/view/img/menu/message.svg` |
+| `menu.client` | `admin/public/view/img/menu/client.svg` |
+| `menu.catalog` | `admin/public/view/img/menu/catalog.svg` |
+| `menu.blog` | `admin/public/view/img/menu/blog.svg` |
+| `menu.seo` | `admin/public/view/img/menu/seo.svg` |
+| `menu.variables` | `admin/public/view/img/menu/variables.svg` |
+| `menu.report` | `admin/public/view/img/menu/report.svg` |
+| `menu.documentation` | `admin/public/view/img/menu/documentation.svg` |
+
+## Чеклист добавления нового пункта меню
+
+При добавлении нового раздела в админку нужно сделать ВСЁ следующее:
+
+1. **Константа** — добавить `const NAME = N;` в `admin/public/App/Enum/Menu.php`
+2. **Пункт в `data()`** — добавить в массив `$page`:
+   ```php
+   self::NAME => (object)['url' => '/url', 'name' => 'Название', 'icon' => 'menu.name'],
+   ```
+3. **SVG-иконка** — создать `admin/public/view/img/menu/name.svg` (Feather-совместимый SVG, 24x24, stroke-width=1.5)
+4. **Роут** — добавить `Router::get('/url', [Controller::class, 'index'])` в `admin/public/router/web.php`
+5. **Контроллер** — `admin/public/App/Controller/Page/{Name}Controller.php`
+6. **Вьюхи** — `admin/public/view/page/{name}/{init,desktop,table,form}.php`
+7. **Entry point** — `admin/src/page/{name}.tsx`
+8. **SCSS** — `admin/src/css/page/{name}.scss`
+9. **Сборка** — `cd admin && npm run build`
+
+## Команды
+
+```bash
+cd site && npm run dev
+cd site && php pet serve
+```
+
+Login (`page/login/init.php`) — отдельный layout без header/footer.
+
+# Переменные (variable)
+
+## Правила
+
+- **Добавление** — через миграцию (`INSERT`) или в админке (`/variables`, кнопка «+»)
+- **Удаление** — запрещено (ни в админке, ни в коде)
+- **Редактирование** — в админке можно менять только `value`; `type` и `name` фиксируются при создании
+
+## Новая переменная (миграция)
+
+```sql
+INSERT INTO `variable` (`type`, `name`, `value`) VALUES
+('contacts', 'phone', '');
+```
+
+Уникальность: `(type, name)`.
+
+## Использование на сайте
+
+```php
+use Module\Model\VariableModel;
+
+$model = new VariableModel(['type' => 'plusofon', 'name' => 'api_token']);
+$token = $model->isInfo() ? (string)$model->get('value') : '';
+```
+
+## Существующие типы
+
+| type | name | Назначение |
+|------|------|------------|
+| `contacts` | phone, email, address, schedule, telegram, whatsapp, max | Страница контактов |
+| `plusofon` | api_token | API-ключ PlusOfon (SMS) |
+
+# Views (PHP-шаблоны)
+
+В `{admin,site}/public/view/` используем **короткие PHP-теги** — как в существующих шаблонах проекта.
+
+## Теги
+
+```php
+<? include __DIR__ . '/head.php' ?>
+<? view('layout') ?>
+
+<? if ($condition): ?>
+    ...
+<? elseif ($other): ?>
+    ...
+<? else: ?>
+    ...
+<? endif; ?>
+
+<? foreach ($items as $row): ?>
+    <?= htmlspecialchars($row['name']) ?>
+<? endforeach; ?>
+```
+
+- `<?` — include, if/foreach, вызовы без вывода
+- `<?=` — вывод значения (экранировать через `htmlspecialchars`, если это пользовательский текст)
+- **Не** использовать `<?php` / `<?php echo` в новых и правимых view-файлах
+
+## Переменные
+
+- Данные страницы передавать **одной структурой** из контроллера, например `$blog`, `$catalog`
+- Не использовать `$item` — конфликтует с `foreach ($menu as $item)` в меню
+- В partials — явные имена: `$blogCard`, `$blogVariant`, не общие `$item` / `$data`
+- Приведение типов и сборку массивов делать в контроллере/модуле, не во view
+
+## Пример
+
+```php
+<? foreach ($blog['items'] ?? [] as $blogCard): ?>
+    <? $blogVariant = 'grid'; ?>
+    <? include __DIR__ . '/../../partial/blog/card.php'; ?>
+<? endforeach; ?>
+
+# Ошибки (из практики)
+
+Записаны ошибки, допущенные при разработке раздела «Аналитика» в админке, чтобы не повторять их в будущем.
+
+## 1. AJAX-контроллеры: namespace и имя класса
+
+**Ошибка:** `Нет такого класса ajax App\Controller\Ajax\Analitic\TimeOnPage` — класс был объявлен с лишним сегментом в namespace или имя класса не совпадало с именем файла.
+
+**Правило:**
+- Namespace AJAX-контроллера: `App\Controller\Ajax\Analitic` (общий для всех контроллеров в папке `Analitic/`)
+- Имя класса = имя файла (без `.php`)
+- Файл: `admin/public/App/Controller/Ajax/Analitic/TimeOnPage.php` → namespace `App\Controller\Ajax\Analitic`, class `TimeOnPage`
+- AjaxController преобразует `analitic_time_on_page` → `App\Controller\Ajax\Analitic\TimeOnPage`
+
+## 2. Опциональные параметры запроса: `attr()` vs `attrs()`
+
+**Ошибка:** `addslashes(): Argument #1 must be of type string, array given` — `attr('page_url')` при отсутствии ключа вернул весь массив запроса.
+
+**Правило:**
+- `attr('key')` при **отсутствии** ключа возвращает весь массив запроса (особенность `request()->input()`)
+- Для опциональных полей использовать ТОЛЬКО `attrs()['key'] ?? null`
+- Обязательно проверять через `!empty()` перед использованием:
+
+```php
+// ❌ Опасно — при отсутствии ключа вернёт весь массив
+$url = attr('page_url');
+
+// ✅ Правильно — для опциональных полей
+$all = attrs();
+$url = !empty($all['page_url']) ? $all['page_url'] : null;
+$dateFrom = !empty($all['date_from']) ? $all['date_from'] : date('Y-m-d', strtotime('-30 days'));
+```
+
+## 3. Incorrect DATETIME value: пустая строка
+
+**Ошибка:** `Incorrect DATETIME value: ''` — пустая строка передавалась в SQL как значение DATETIME.
+
+**Правило:**
+- `$all['date_from'] ?? default` НЕ спасает, если ключ есть, но значение — пустая строка
+- Использовать `!empty($all['key']) ? $all['key'] : $default` — это отсекает и `null`, и `''`, и `'0'`
+- Для SQL-параметров даты всегда проверять через `!empty()`:
+
+```php
+$dateFrom = !empty($all['date_from']) ? $all['date_from'] : date('Y-m-d', strtotime('-30 days'));
+```
+
+## 4. Подключение вьюх для новой секции внутри существующей страницы
+
+**Ошибка:** Пустая страница `/seo/analitic` — `desktop.php` SEO пытался подключить `analitic/table.php`, которого не существует.
+
+**Правило:**
+- При добавлении новой секции в существующую страницу (например, `analitic` внутри `seo`), нужно добавить явное условие в родительском `desktop.php`:
+
+```php
+<? if ($seoSectionName === 'analitic'): ?>
+    <? include __DIR__ . '/analitic/desktop.php' ?>
+<? else: ?>
+    <? $seoTemplate = $seoSectionName === 'robots' ? 'form' : 'table' ?>
+    <? include __DIR__ . '/' . $seoSectionName . '/' . $seoTemplate . '.php' ?>
+<? endif; ?>
+```
+
+- Не полагаться на общий шаблон подключения, если новая секция имеет другую структуру вьюх.
+
+## 5. Фронтенд: модуль для подраздела внутри существующей страницы
+
+**Ошибка:** Был создан отдельный `admin/src/page/analitic.tsx`, хотя webpack не подхватил бы его без соответствующей `view/page/analitic/`.
+
+**Правило:**
+- Для подраздела внутри существующей страницы (например, `analitic` внутри `seo`) НЕ создавать отдельный `page/{name}.tsx`
+- Создавать модуль в `admin/src/module/{name}.tsx` с классом/функцией
+- Импортировать и инициализировать в существующем `admin/src/page/{parent}.tsx`:
+
+```tsx
+// admin/src/page/seo.tsx
+import { Analitic } from '@src/module/analitic';
+
+if (section === 'analitic') {
+    new Analitic().init();
+}
+```
+
+- SCSS для подраздела: создать `admin/src/css/page/{name}.scss` и импортировать через `@use` в SCSS родительской страницы.
+
+## 6. Документация: какая документация имеется в виду
+
+**Ошибка:** На запрос «добавить в документацию» был дополнен `.clinerules` (техническая документация для ассистента), хотя пользователь имел в виду страницу документации в админке (`admin/public/view/page/documentation/desktop.php`).
+
+**Правило:**
+- `.clinerules` — техническая документация для ассистента (пути, классы, переменные, правила кодирования)
+- `admin/public/view/page/documentation/desktop.php` — бизнес-документация для пользователей админки (сценарии, бизнес-процессы, без технических деталей)
+- При запросе «дополнить документацию» уточнять, о какой документации речь, или смотреть контекст — если речь о бизнес-логике, значит страница в админке
+
+## 7. AJAX-имена: `_` разбивает namespace, `Ai` а не `AI`
+
+**Ошибка:** `Нет такого класса ajax App\Controller\Ajax\Yandex\Ai\Generate` — URL `/ajax/yandex_ai_generate` был разобран как `Yandex\Ai\Generate`, а namespace был `YandexAI`.
+
+**Правило:**
+- `AjaxController` разбивает имя по символу `_` и делает `ucfirst()` каждому сегменту
+- `yandex_ai_generate` → `Yandex` + `Ai` + `Generate` → `App\Controller\Ajax\Yandex\Ai\Generate`
+- Поэтому namespace и имя папки должны быть `YandexAi`, а не `YandexAI`
+- В URL использовать `yandexAi_generate` (camelCase перед `_`), чтобы сегмент `Ai` был с маленькой `i`
+- Итоговый URL: `/ajax/yandexAi_generate` → `App\Controller\Ajax\YandexAi\Generate`
+
+# Rocet — встроенный DOM-модуль (admin/src)
+
+Rocet — jQuery-подобная обёртка для поиска и работы с DOM-элементами. Импорт:
+
+```ts
+import { $, r, Rocet } from '@rocet/rocet';
+import { div, span, button, input, a, p, label, ul, li, table, tr, td, th, select, option, textarea, h1, h2, h3, h4, nav, img, btn } from '@rocet/RocetNodeElements';
+import { integ } from '@rocet/integration';
+import { RocetNode, RocetElement } from '@rocet/RocetNode';
+```
+
+## Создание экземпляра
+
+```ts
+$(selector)           // CSS-селектор → поиск по document.querySelectorAll
+$(element)            // HTMLElement → обёртка
+$('<div></div>')      // HTML-строка → создание элемента
+r(selector)           // аналог $()
+```
+
+## Поиск элементов
+
+| Метод | Описание |
+|-------|----------|
+| `$(selector)` | Поиск по CSS-селектору в document |
+| `$el.find(selector)` | Поиск внутри выбранных элементов |
+| `$el.closest(selector)` | Ближайший родитель по селектору |
+| `$el.item(index)` | Получить HTMLElement по индексу (по умолч. 0) |
+| `$el.each(callback)` | Итерация по элементам: `($el: Rocet, i: number) => ...` |
+| `$el.exist()` | Проверка, есть ли элементы (length != 0) |
+| `$el.length` | Количество элементов |
+
+## Чтение/запись
+
+| Метод | Описание |
+|-------|----------|
+| `$el.val(value?)` | Getter/setter для `value` input/select |
+| `$el.text(str?)` | Getter/setter для `textContent` |
+| `$el.html(str?)` | Getter/setter для `innerHTML` |
+| `$el.attr(name, value?)` | Getter/setter для атрибута |
+| `$el.data(name, value?)` | Getter/setter для `data-*` атрибута |
+| `$el.prop(name, value?)` | Getter/setter для любого свойства элемента |
+| `$el.isAttr(name)` | Проверка наличия атрибута |
+| `$el.attrRemove(name)` | Удаление атрибута |
+| `$el.getObjectAttr()` | Получить все атрибуты как объект |
+
+## Работа с классами
+
+| Метод | Описание |
+|-------|----------|
+| `$el.classAdd(name)` | Добавить класс |
+| `$el.classRemove(name)` | Удалить класс |
+| `$el.classToggle(name)` | Переключить класс |
+| `$el.classReplase(old, new)` | Заменить класс |
+
+## События
+
+| Метод | Описание |
+|-------|----------|
+| `$el.on(type, callback)` | addEventListener |
+| `$el.trigger(type)` | dispatchEvent |
+
+## Манипуляции с DOM
+
+| Метод | Описание |
+|-------|----------|
+| `$el.add(element)` | append (HTMLElement, RocetNode или Rocet) |
+| `$el.remove(selector?)` | Удалить элемент(ы) |
+| `$el.render(rocetNode)` | Заменить содержимое на RocetNode |
+| `$el.hide()` | `style.display = 'none'` |
+| `$el.show()` | Убрать `display: none` из style |
+| `$el.isVisible()` | Проверить видимость элемента |
+| `$el.clone()` | Клонировать элемент с событиями |
+
+## Создание элементов (JSX-фабрики)
+
+```ts
+div({ className: 'my-class', id: 'my-id' }, [
+    span({ textContent: 'Hello' }),
+    button({ onclick: () => alert('click') }, 'Click me'),
+])
+```
+
+- Props: любые атрибуты + `className`, `textContent`, `innerHTML`, `onclick`, `onchange`, `onkeydown`, `onblur`, `onfocus`, `checked`, `selected`, `value`, `placeholder`, `style`, `required`, `disabled`
+- Children: строка, RocetNode, или массив RocetNode
+- События через `on*` автоматически вешаются через `addEventListener`
+
+## Proxy-доступ
+
+Rocet использует Proxy: если обратиться к свойству, которого нет на классе Rocet, оно пробрасывается на первый HTMLElement:
+
+```ts
+$('#my-input').value        // === document.getElementById('my-input').value
+$('#my-div').id             // === document.getElementById('my-div').id
+$('.items').length          // количество элементов в коллекции
+```
+
+## Примеры использования
+
+```ts
+// Поиск и установка текста
+$('[data-metric="total_sessions"]').text('42');
+
+// Обработчик клика
+$('.btn-save').on('click', (e) => {
+    const $btn = $(e.target as HTMLElement);
+    $btn.classAdd('loading');
+});
+
+// Итерация
+$('.item').each(($el: Rocet, i: number) => {
+    $el.text('Item ' + i);
+});
+
+// Создание и вставка
+const $list = $('ul.my-list');
+data.forEach((item) => {
+    $list.add(li({ textContent: item.name }));
+});
+
+// Проверка существования
+if ($('#chart').exist()) {
+    // элемент есть в DOM
+}
+```
+
+# Deploy
+
+Скрипт автоматического деплоя: [`deploy.sh`](deploy.sh) в корне репозитория.
+
+## Настройка
+
+В начале файла задаётся переменная `BRANCH` — целевая ветка для деплоя (по умолчанию `main`).
+
+## Запуск на кроне
+
+```bash
+* * * * * cd /home/alex/desktop/pro/gorning && ./deploy.sh
+```
+
+## Что делает скрипт
+
+0. **Первичная установка зависимостей** — если нет `vendor/` → `composer install`, если нет `node_modules/` → `npm install`
+1. Проверяет текущую ветку — если не совпадает с `BRANCH`, переключается
+2. `git pull origin $BRANCH` — стягивает изменения
+3. Если HEAD не изменился — завершается (нет новых коммитов)
+4. Если изменился `composer.json` — `composer update --no-interaction --with-dependencies` для admin и site
+5. Если есть изменения в `migrations/` — запускает `php pet migrate` для admin и site
+6. Если есть изменения в `admin/src/` — запускает `npm run build` в admin
+7. Если есть изменения в `site/src/` — запускает `npm run build` в site
+
+## Lock-файл
+
+Используется `/tmp/gorning-deploy.lock` — предотвращает одновременный запуск нескольких экземпляров.
+
+## Логи
+
+Все действия пишутся в `log/deploy.log`.
+
+# Цена по договорённости (is_negotiable)
+
+## БД
+
+Поле `is_negotiable TINYINT(1) DEFAULT 0` в таблице [`catalog`](migrations/2_category_catalog.sql:16). Добавлено миграцией [`24_catalog_is_negotiable.sql`](migrations/24_catalog_is_negotiable.sql).
+
+## Логика
+
+- Если `is_negotiable = 1`, цена товара принудительно устанавливается в 0 при сохранении формы [`Catalog/Save`](admin/public/App/Form/Catalog/Save.php:30)
+- Товар с `is_negotiable = 1` **не участвует** в расчёте итоговой суммы заказа — `line_total = 0` в [`Catalog::listCartItems()`](site/public/App/Module/Catalog.php:274)
+- Товар с `is_negotiable = 1` **не списывается** со склада при оформлении заявки — проверка в [`Checkout/Save::finishOrder()`](site/public/App/Form/Checkout/Save.php:208)
+- Товар с `is_negotiable = 1` можно добавить в корзину, но **максимум 1 шт.** — `data-stock` принудительно = 1 в [`catalog-item/desktop.php`](site/public/view/page/catalog-item/desktop.php:40) и [`catalog/desktop.php`](site/public/view/page/catalog/desktop.php:189)
+
+## Отображение
+
+### Админка
+
+- Форма товара: чекбокс «Цена по договорённости» в [`product/form.php`](admin/public/view/page/catalog/product/form.php:32)
+- Таблица товаров: колонка «По договорённости» в [`product/table.php`](admin/public/view/page/catalog/product/table.php:19)
+- Таблица цен: вместо цены показывается «По договорённости» в [`Price.php`](admin/public/App/Table/Price.php:40)
+- Форма заявки: для negotiable товаров показывается поле ввода цены (с debounce-сохранением) в [`form.php`](admin/public/view/page/request/form.php:68)
+- AJAX-сохранение цены: `/ajax/request_setPrice` → [`Request/SetPrice.php`](admin/public/App/Controller/Ajax/Request/SetPrice.php)
+- JS-обработчик: debounce 500мс в [`request.tsx`](admin/src/page/request.tsx:133)
+
+### Сайт
+
+- Страница товара: вместо цены — «Цена по договорённости» в [`catalog-item/desktop.php`](site/public/view/page/catalog-item/desktop.php:39)
+- Список каталога: вместо цены — «Цена по договорённости» в [`catalog/desktop.php`](site/public/view/page/catalog/desktop.php:175)
+- Чекаут: для negotiable товаров показывается «Цена по договорённости» вместо суммы, в итоге добавляется пометка что цена не включена в сумму в [`checkout/desktop.php`](site/public/view/page/checkout/desktop.php:41)

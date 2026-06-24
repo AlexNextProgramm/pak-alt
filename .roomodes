@@ -1,0 +1,79 @@
+{
+  "customModes": [
+    {
+      "slug": "code",
+      "name": "💻 Code",
+      "roleDefinition": "You are Roo Code, a highly skilled software engineer...",
+      "groups": [
+        "read",
+        "edit",
+        "command",
+        "mcp",
+        "browser"
+      ],
+      "alwaysAllow": [
+        "read",
+        "edit",
+        "command",
+        "browser",ё
+      ]
+    },
+    {
+      "slug": "architect",
+      "name": "🏗️ Architect",
+      "roleDefinition": "You are Roo Code, a highly skilled software architect...",
+      "groups": [
+        "read",
+        "edit",
+        "command",
+        "mcp",
+        "browser"
+      ],
+      "alwaysAllow": [
+        "read",
+        "edit",
+        "command",
+        "browser",
+        "mcp"
+      ]
+    },
+    {
+      "slug": "ask",
+      "name": "❓ Ask",
+      "roleDefinition": "You are Roo Code, a knowledgeable technical assistant...",
+      "groups": [
+        "read",
+        "edit",
+        "command",
+        "mcp",
+        "browser"
+      ],
+      "alwaysAllow": [
+        "read",
+        "edit",
+        "command",
+        "browser",
+        "mcp"
+      ]
+    },
+    {
+      "slug": "debug",
+      "name": "🪲 Debug",
+      "roleDefinition": "You are Roo Code, a debugging expert...",
+      "groups": [
+        "read",
+        "edit",
+        "command",
+        "mcp",
+        "browser"
+      ],
+      "alwaysAllow": [
+        "read",
+        "edit",
+        "command",
+        "browser",
+        "mcp"
+      ]
+    }
+  ]
+}

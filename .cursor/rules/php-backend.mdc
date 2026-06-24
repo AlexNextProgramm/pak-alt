@@ -1,0 +1,70 @@
+---
+description: PHP/Pet backend — контроллеры, модели, формы, роутинг
+globs: admin/public/**/*.php,admin/public/router/**/*.php,site/public/**/*.php,site/public/router/**/*.php
+alwaysApply: false
+---
+
+# PHP backend (Pet framework)
+
+## Автозагрузка
+
+`App\Foo\Bar` → `admin/public/App/Foo/Bar.php` (custom autoload, не Composer PSR-4).
+
+## Слои
+
+| Слой | Путь | Базовый класс |
+|------|------|---------------|
+| Controller | `App/Controller/`, `App/Controller/Page/` | `Pet\Controller`, `PageController` |
+| Model | `App/Model/` | `Pet\Model\Model` (fluent query builder) |
+| Form | `App/Form/` | `Form` — `submit()` → JSON |
+
+Подробнее: rule `forms` — обязательный `name`, `csrf-token`, `type="submit"`.
+| Module | `App/Module/` | Auth, Tool, UI |
+| Enum | `App/Enum/` | Menu, UsersType |
+
+## Роутинг (`router/web.php`)
+
+```php
+Router::middleware([Auth::class, 'init'])->set(
+    Router::get('/', [HomeController::class, 'index']),
+);
+```
+
+- POST AJAX: header `form-name` → `App\Form\{Name}::init`
+- Ajax: `/ajax/{name}` → `App\Controller\Ajax\{Name}`
+- Modals: `/modal` → `ModalController`
+- URL-параметры: `supple('key')`
+
+## Параметры запроса
+
+GET/POST — через `attr()` / `attrs()`, не `$request->input()`:
+
+```php
+$q = attrs()['q'] ?? '';           // опциональный параметр
+$id = attr('id');                  // только если ключ точно есть в запросе
+$all = attrs();                    // все параметры
+```
+
+`attr('key')` при **отсутствии** ключа возвращает весь массив запроса (особенность `request()->input()`). Для опциональных полей — `attrs()['key'] ?? null`.
+
+## Views
+
+`view('page.home.init', $data)` → `view/page/home/init.php`
+
+Цепочка: `init.php` → `head.php` (webpack) → `layout.php` → `menu.php` + `desktop.php`
+
+`PageController` сам задаёт путь desktop и меню из `Menu::data()`.
+
+## Auth
+
+Cookie `auth` → `UsersModel`. Middleware `Auth::init` на защищённых маршрутах. CSRF: `Form::csrf()`.
+
+## Модели и БД
+
+- Конфиг: `DB_*` из `.env`
+- Миграции: `migrations/*.sql`, `php pet migrate`
+- Scaffold: `php pet make:model Name`
+
+## AJAX-ответы
+
+JSON с `type`: `fire`, `reload`, `modal`, `error-input`. Toast — класс `Fire`.

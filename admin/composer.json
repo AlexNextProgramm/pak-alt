@@ -1,0 +1,25 @@
+{
+    "name":"forging/admin",
+    "require":{
+        "php":">=8.0",
+        "pet/framework":"dev-main",
+         "phpmailer/phpmailer": "^6.5",
+        "mpdf/mpdf": "^8.2"
+    }, 
+    "autoload": {
+        "psr-4": {
+          "Pet\\": "vendor/pet/framework/",
+          "Test\\": "tests/"
+        }
+    },
+  "require-dev":{
+    "phpunit/phpunit": "^11"
+  },
+  "files":[
+    "/vendor/pet/framework/function.php"
+  ],
+  "scripts": {
+    "test": "phpunit --configuration=tests/phpunit.xml",
+    "test:filter": "phpunit --configuration=tests/phpunit.xml --filter"
+  }
+}

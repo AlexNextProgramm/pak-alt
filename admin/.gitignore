@@ -1,0 +1,14 @@
+/vendor/**
+*.lock
+*-lock.json
+node_modules/
+
+
+public/view/assets
+public/view/page/**/head.php
+.env
+.env.dev
+public/view/uploads
+.gitinfo
+debug.txt
+config.constant.php

@@ -1,0 +1,63 @@
+---
+description: Формы админки — name, csrf-token, submit через App\Form
+globs: admin/public/view/**/*.php,admin/public/App/Form/**/*.php,admin/src/**/*.tsx
+alwaysApply: false
+---
+
+# Формы (admin)
+
+Сохранение данных в админке — **только через формы** с атрибутом `name`, не через кастомный `ajax.send`.
+
+## Разметка
+
+```php
+<form name="Blog/Save" csrf-token="<?= Form::csrf(true) ?>" class="page-blog__form-body">
+    <input type="hidden" name="id" value="...">
+    <input ui="text-form" label="Название" type="text" name="name" value="..." />
+    <button type="submit" class="btn btn-submit-blue">Сохранить</button>
+</form>
+```
+
+Обязательно:
+
+- `name="Group/Action"` — маппится на `App\Form\Group\Action`
+- `csrf-token` — токен CSRF
+- `class` на `<form>` — стилевой класс страницы
+- `type="submit"` на кнопке — глобальный обработчик в `admin/src/event/submit.tsx`
+
+## Бэкенд
+
+```php
+// admin/public/App/Form/Blog/Save.php
+namespace App\Form\Blog;
+
+class Save extends Form
+{
+    public $auth = true;
+
+    public function submit(Request $request)
+    {
+        $fields = Form::normalizerFields();
+        // ...
+        return new Fire('Сохранено');           // toast
+        return ['type' => 'redirect', 'href' => '/blog']; // редирект
+        return Form::errorInput('name', '...');  // ошибка поля
+    }
+}
+```
+
+## Когда Ajax допустим
+
+`/ajax/{name}` — для **инлайн-редактирования** без формы (таблицы, статусы, debounce-save). Не для страниц с кнопкой «Сохранить».
+
+## Антипаттерн
+
+```php
+<!-- ❌ без name, кастомный data-action + ajax.send -->
+<form data-action="save-robots">
+```
+
+```tsx
+// ❌ ручной submit вместо глобального обработчика
+form.addEventListener('submit', () => ajax.send('seo_robots_save', ...));
+```

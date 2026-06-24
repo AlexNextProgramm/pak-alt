@@ -1,0 +1,73 @@
+---
+description: Карта проекта gorning — где что искать
+alwaysApply: true
+---
+
+# Gorning — карта проекта
+
+Монорепо из двух приложений: `admin/` (кабинет) и `site/` (публичный сайт). Оба на Pet framework, независимые `.env` и webpack.
+
+## Структура
+
+| Путь | Назначение |
+|------|------------|
+| `admin/public/` | Web root админки |
+| `site/public/` | Web root публичного сайта |
+| `{app}/public/App/` | PHP-код приложения |
+| `{app}/public/router/` | Маршруты |
+| `{app}/public/view/` | PHP-шаблоны |
+| `{app}/src/` | TS/SCSS → webpack → `public/view/assets/` |
+| `{app}/vendor/pet/framework/` | Фреймворк Pet |
+| `migrations/` | SQL-миграции (корень репо) |
+| `service/` | **Глобальный PHP-код** — общий для admin и site |
+
+## Глобальные классы (`service/`)
+
+Код, который нужен **обоим** приложениям, кладётся в `service/`, а не дублируется в `admin/public/App/` и `site/public/App/`.
+
+- Подключение: в `{app}/config.constant.php` → `define('EXTERNAL_MODULE', '../service');`
+- Автозагрузка Pet: namespace → путь относительно `service/`
+- Namespace: **`Module\...`** → файл `service/Module/.../*.php`
+
+| Класс | Файл |
+|-------|------|
+| `Module\Upload\Storage` | `service/Module/Upload/Storage.php` |
+| `Module\Model\VariableModel` | `service/Module/Model/VariableModel.php` |
+
+Переменные: добавляются миграцией или в админке, удаление запрещено, редактируется только `value`. Подробнее: rule `variables`.
+| `Module\PlusOfon\PlusOfon` | `service/Module/PlusOfon/PlusOfon.php` |
+
+Использование в admin/site:
+
+```php
+use Module\Model\VariableModel;
+use Module\Upload\Storage;
+```
+
+Локальный код приложения — только в `{app}/public/App/` (namespace `App\`).
+
+## Site layout
+
+`site/public/view/layout.php`: **header** (меню внутри) → **main** → **footer**.
+Breakpoints: mobile <768, tablet 768–1023, desktop ≥1024. Подробнее: rule `site-layout`.
+
+## Точки входа
+
+- Admin: `admin/public/index.php`, CLI: `cd admin && php pet serve`
+- Site: `site/public/index.php`, CLI: `cd site && php pet serve`
+
+## Не коммитить
+
+`.env`, `config.constant.php`, `node_modules/`, `vendor/`, `public/view/assets/`
+
+## Команды
+
+```bash
+cd admin && npm run dev && php pet serve
+cd site && npm run dev && php pet serve
+```
+
+## Особенности
+
+- Namespace: смесь `App\` и `APP\` — копировать стиль соседнего файла
+- Admin и site — отдельные копии, изменения в одном не переносятся автоматически

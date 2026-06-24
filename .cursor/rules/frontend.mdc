@@ -1,0 +1,48 @@
+---
+description: Frontend — TypeScript/React, webpack, SCSS
+globs: admin/src/**/*.{ts,tsx,scss}
+alwaysApply: false
+---
+
+# Frontend (admin/src)
+
+Не SPA: гибрид PHP views + per-page TS-бандлы.
+
+## Связка страница ↔ фронт
+
+Добавляя страницу, создавать оба:
+
+1. `admin/src/page/{name}.tsx` — entry point
+2. `admin/public/view/page/{name}/` — PHP partials (`init.php`, `desktop.php`)
+
+Webpack автоматически связывает их и генерирует `head.php` + assets в `public/view/assets/`.
+
+## Структура src/
+
+| Путь | Назначение |
+|------|------------|
+| `root.tsx` | Глобальные импорты, event wiring |
+| `page/{name}.tsx` | Entry per page |
+| `module/` | ajax, captcha, UI-компоненты |
+| `css/` | SCSS: `elements/`, `page/`, `module/` |
+
+## Алиасы webpack
+
+`@rocet/*`, `@tools/*`, `@lib/*`, `@libScss/*`, `@src/*`
+
+## UI-стек
+
+React 18 (JSX factory `integ`), Rocet DOM (`vendor/pet/framework/Frontend/rocet`), Bootstrap 5.
+
+## AJAX с клиента
+
+POST + headers: `form-name`, `csrf-token`. Обработка ответов по `type` (fire, reload, modal…).
+
+## Сборка
+
+```bash
+cd admin && npm run dev    # watch
+cd admin && npm run build  # production
+```
+
+Конфиг: `admin/webpack.config.js` → `vendor/pet/framework/Frontend/webpack.js`
