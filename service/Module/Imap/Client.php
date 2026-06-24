@@ -46,7 +46,7 @@ class Client
         $this->password = $this->loadVariable('password');
         $this->encryption = $this->loadVariable('encryption') ?: 'ssl';
         $this->verifySsl = $this->loadVariable('verify_ssl') !== '0';
-        $this->folder = $this->loadVariable('folder') ?: 'INBOX';
+        $this->folder = $this->loadVariable('folder');
     }
 
     public function __destruct()
@@ -133,6 +133,75 @@ class Client
             ];
         } catch (\Throwable $error) {
             error_log('IMAP getFolders: ' . $error->getMessage());
+
+            return [
+                'success' => false,
+                'error' => $error->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @return array{success: bool, messages?: array<int, array<string, mixed>>, total?: int, error?: string}
+     */
+    public function getMessagesPaginated(
+        int $offset = 0,
+        int $limit = 50,
+        string $criteria = 'UNSEEN',
+        ?string $folder = null,
+    ): array {
+        $connectResult = $this->connect($folder);
+        if (!$connectResult['success']) {
+            return $connectResult;
+        }
+
+        try {
+            $uidList = imap_search($this->connection, $criteria, SE_UID);
+            if ($uidList === false) {
+                return [
+                    'success' => true,
+                    'messages' => [],
+                    'total' => 0,
+                ];
+            }
+
+            rsort($uidList, SORT_NUMERIC);
+            $total = count($uidList);
+
+            if ($limit > 0) {
+                $uidList = array_slice($uidList, $offset, $limit);
+            } elseif ($offset > 0) {
+                $uidList = array_slice($uidList, $offset);
+            }
+
+            if ($uidList === []) {
+                return [
+                    'success' => true,
+                    'messages' => [],
+                    'total' => $total,
+                ];
+            }
+
+            $overviewList = imap_fetch_overview($this->connection, implode(',', $uidList), FT_UID);
+            if ($overviewList === false) {
+                return [
+                    'success' => false,
+                    'error' => $this->lastImapError('Не удалось получить заголовки писем'),
+                ];
+            }
+
+            $messages = [];
+            foreach ($overviewList as $overviewItem) {
+                $messages[] = $this->mapOverview($overviewItem);
+            }
+
+            return [
+                'success' => true,
+                'messages' => $messages,
+                'total' => $total,
+            ];
+        } catch (\Throwable $error) {
+            error_log('IMAP getMessagesPaginated: ' . $error->getMessage());
 
             return [
                 'success' => false,

@@ -7,6 +7,7 @@ use App\Controller\Page\CompanyController;
 use App\Controller\Page\CronReportController;
 use App\Controller\Page\DocumentationController;
 use App\Controller\Page\HomeController;
+use App\Controller\Page\MailController;
 use App\Controller\Page\VariablesController;
 use App\Form\Form;
 use App\Module\Auth;
@@ -35,6 +36,8 @@ Router::middleware(
 )->set(
     Router::get('/', [HomeController::class, 'index']),
     Router::get('/company', [CompanyController::class, 'index']),
+    Router::get('/mail', [MailController::class, 'index']),
+    Router::get('/mail/attachment', [MailController::class, 'attachment']),
     Router::get('/variables', [VariablesController::class, 'index']),
     Router::get('/cron-report', [CronReportController::class, 'index']),
     Router::get('/documentation', [DocumentationController::class, 'index']),
