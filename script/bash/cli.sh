@@ -22,6 +22,7 @@ print_install_help() {
   deps         composer, npm, миграции
   github       настройка SSH-ключей для GitHub
   permissions  права на assets (алиас: perms)
+  ollama       Ollama + модель gemma3:1b
   finish       итоговый вывод
 
 Примеры:
@@ -83,13 +84,17 @@ run_install_module() {
             log ">>> Модуль: github"
             setup_github_ssh
             ;;
+        ollama)
+            log ">>> Модуль: ollama"
+            setup_ollama
+            ;;
         finish|summary)
             log ">>> Модуль: finish"
             print_summary
             ;;
         *)
             echo "Неизвестный модуль: $1" >&2
-            echo "Доступные: symlink apt nginx mysql php nodejs git nginx-site database deps github permissions finish" >&2
+            echo "Доступные: symlink apt nginx mysql php nodejs git nginx-site database deps github ollama permissions finish" >&2
             exit 1
             ;;
     esac

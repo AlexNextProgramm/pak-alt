@@ -1,0 +1,17 @@
+{
+  "name": "pak-alt-ai",
+  "version": "1.0.0",
+  "description": "Пакет для работы с Ollama (llama3.2:3b). Читает Excel-файлы и отправляет данные в LLM по заданным промтам.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node index.js --file ./test.xlsx --type parse_contacts"
+  },
+  "keywords": ["ollama", "llama", "excel", "ai", "llm"],
+  "license": "MIT",
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "node-fetch": "^3.3.2"
+  }
+}

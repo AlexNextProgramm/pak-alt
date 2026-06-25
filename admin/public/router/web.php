@@ -6,6 +6,7 @@ use App\Controller\ModalController;
 use App\Controller\Page\CompanyController;
 use App\Controller\Page\CronReportController;
 use App\Controller\Page\DocumentationController;
+use App\Controller\Page\AiController;
 use App\Controller\Page\HomeController;
 use App\Controller\Page\MailController;
 use App\Controller\Page\VariablesController;
@@ -42,6 +43,7 @@ Router::middleware(
     Router::get('/mail/attachment', [MailController::class, 'attachment']),
     Router::get('/variables', [VariablesController::class, 'index']),
     Router::get('/cron-report', [CronReportController::class, 'index']),
+    Router::get('/ai', [AiController::class, 'index']),
     Router::get('/documentation', [DocumentationController::class, 'index']),
     Router::get('/login', [LoginController::class, 'index']),
     Router::post('/ajax/{name}', [AjaxController::class, 'index']),

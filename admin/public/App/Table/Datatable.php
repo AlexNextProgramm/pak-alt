@@ -40,6 +40,21 @@ class Datatable
 
         $this->model = new $nameClass();
         $this->datatables(json_decode(attr('table'), true));
+
+        // Проверяем, есть ли ошибка IMAP в модели
+        if (property_exists($this->model, 'imapError') && $this->model->imapError !== null) {
+            Response::set(Response::TYPE_JSON);
+            return [
+                'item' => [],
+                'pages' => ['all' => 0],
+                'fire' => [
+                    'type' => 'fire',
+                    'status' => 'error',
+                    'text' => $this->model->imapError,
+                ],
+            ];
+        }
+
         $this->model->behind($this->result['item']);
         Response::set(Response::TYPE_JSON);
 

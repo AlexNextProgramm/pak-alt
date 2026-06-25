@@ -2,6 +2,7 @@ import { ajax } from "./ajax";
 import { $, Rocet } from "@rocet/rocet";
 import { integ } from "@rocet/integration";
 import { RocetElement } from "@rocet/RocetNode";
+import { Fire } from "./ui/fire";
 
 interface settingDatabase {
     hideColumsIndex: Array<number>,
@@ -155,6 +156,15 @@ export class Datatable {
 
         ajax.post(this.dataSend, { datatable: name }).then((data) => {
             if (isDevelopment) console.log("DataTable response: ", data);
+
+            // Если в ответе есть fire — показываем уведомление и не рендерим таблицу
+            if (data?.fire) {
+                Fire.show(data.fire);
+                this.page.all = 0;
+                this.render([]);
+                return;
+            }
+
             this.page.all = data.pages.all;
             this.render(data.item);
         })

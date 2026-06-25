@@ -45,7 +45,8 @@ export class ajax {
             headers,
             redirect: 'follow'
        })
-        if (result.headers.get('Content-type') == 'application/json;') { 
+        const contentType = result.headers.get('Content-Type') ?? result.headers.get('Content-type') ?? '';
+        if (contentType.includes('application/json')) {
             return await result.json();
         }
         return await result.text();

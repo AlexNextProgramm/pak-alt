@@ -13,6 +13,7 @@ class Menu
     const CRON_REPORT = 8;
     const DOCUMENTATION = 9;
     const MAIL = 10;
+    const AI = 11;
 
     public static function data($UT = UT::SYSADMIN): array
     {
@@ -23,6 +24,7 @@ class Menu
             self::MAIL => (object)['url' => '/mail', 'name' => 'Почта', 'icon' => 'menu.mail'],
             self::VARIABLES => (object)['url' => '/variables', 'name' => 'Переменные', 'icon' => 'menu.variables'],
             self::CRON_REPORT => (object)['url' => '/cron-report', 'name' => 'Отчёт крона', 'icon' => 'menu.cron-report'],
+            self::AI => (object)['url' => '/ai', 'name' => 'AI', 'icon' => 'menu.ai'],
             self::DOCUMENTATION => (object)['url' => '/documentation', 'name' => 'Документация', 'icon' => 'menu.documentation'],
         ];
     }

@@ -3,7 +3,6 @@
 namespace App\Table;
 
 use Module\Imap\Client;
-use Pet\Errors\AppException;
 use Pet\Model\Model;
 
 class Mail extends Model implements Itable
@@ -12,6 +11,9 @@ class Mail extends Model implements Itable
     private array $messages = [];
 
     public $st = 0;
+
+    /** @var string|null Ошибка IMAP, если есть */
+    public ?string $imapError = null;
 
     public function renameFilter(string &$k, array|string &$v): bool
     {
@@ -29,7 +31,10 @@ class Mail extends Model implements Itable
         $result = $client->getMessagesPaginated($offset, $limit, 'UNSEEN');
 
         if (!$result['success']) {
-            throw new AppException($result['error'] ?? 'Ошибка загрузки почты', E_USER_WARNING);
+            $this->imapError = $result['error'] ?? 'Ошибка загрузки почты';
+            $this->st = 0;
+            $this->messages = [];
+            return;
         }
 
         $this->st = (int)($result['total'] ?? 0);
