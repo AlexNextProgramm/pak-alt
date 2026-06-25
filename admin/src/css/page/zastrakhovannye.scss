@@ -53,6 +53,33 @@
     white-space: nowrap;
   }
 
+  &__address,
+  &__wrap {
+    max-width: 240px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  &__operation {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &--прикрепление {
+      color: #166534;
+      background: #dcfce7;
+    }
+
+    &--открепление {
+      color: #991b1b;
+      background: #fee2e2;
+    }
+  }
+
   .datatable-wrapper {
     width: 100%;
 

@@ -262,15 +262,90 @@ function detectOperationTypeFromText(text, extraDetach = [], extraAttach = []) {
 }
 
 /**
+ * Дата из имени файла: _24_06_2026 или -24-06-2026 → 24.06.2026
+ * @param {string} filePath
+ * @returns {string}
+ */
+function extractDateFromFilename(filePath) {
+  const name = basename(filePath, extname(filePath));
+  const match = name.match(/(\d{2})[-_.](\d{2})[-_.](\d{4})/);
+  if (!match) {
+    return '';
+  }
+
+  return `${match[1]}.${match[2]}.${match[3]}`;
+}
+
+/**
+ * @param {string} token
+ * @returns {'прикрепление'|'открепление'|''}
+ */
+function detectOperationTypeFromFilenameToken(token) {
+  const value = normalizeHeader(token);
+  if (!value) {
+    return '';
+  }
+
+  if (value === 'откреп' || value.startsWith('откреп') || value === 'закр' || value === 'snyat' || value === 'detach') {
+    return 'открепление';
+  }
+
+  if (value === 'откр' || (value.startsWith('откр') && !value.startsWith('откреп'))) {
+    return 'прикрепление';
+  }
+
+  return '';
+}
+
+/**
  * Определяет тип операции по имени файла.
  * @param {string} filePath
  * @returns {'прикрепление'|'открепление'|''}
  */
 function detectOperationTypeFromFilename(filePath) {
-  const name = basename(filePath, extname(filePath));
-  const text = name.replace(/[-_.]+/g, ' ');
+  const baseName = basename(filePath, extname(filePath));
+  const tokens = baseName.replace(/ё/g, 'е').split(/[-_.]+/);
+
+  for (const token of tokens) {
+    const fromToken = detectOperationTypeFromFilenameToken(token);
+    if (fromToken === 'открепление') {
+      return 'открепление';
+    }
+  }
+
+  for (const token of tokens) {
+    const fromToken = detectOperationTypeFromFilenameToken(token);
+    if (fromToken === 'прикрепление') {
+      return 'прикрепление';
+    }
+  }
+
+  const text = baseName.replace(/[-_.]+/g, ' ');
   const filenameKw = getFilenameKeywords();
   return detectOperationTypeFromText(text, filenameKw.detachment, filenameKw.attachment);
+}
+
+/**
+ * @param {object} person
+ * @param {string} filePath
+ * @returns {object}
+ */
+function finalizeInsuredPerson(person, filePath) {
+  const filenameDate = extractDateFromFilename(filePath);
+
+  if (person.operation_type === 'прикрепление' && !person.service_start && filenameDate) {
+    person.service_start = filenameDate;
+  }
+
+  if (person.operation_type === 'открепление' && !person.service_end && filenameDate) {
+    person.service_end = filenameDate;
+  }
+
+  if (person.operation_type === 'открепление' && !person.program) {
+    person.program = '';
+  }
+
+  return person;
 }
 
 /**
@@ -299,26 +374,187 @@ export function detectOperationType(rawData, headerRowIndex, filePath = '') {
   return '';
 }
 
+function isDateLike(value) {
+  const text = String(value ?? '').trim();
+  return /^\d{2}\.\d{2}\.\d{4}$/.test(text) || /^\d{2}\/\d{2}\/\d{4}$/.test(text);
+}
+
+/**
+ * Дата прикрепления/открепления из шапки блока («Снять с:», «Прикрепить с:»).
+ * @param {any[][]} rawData
+ * @param {number} headerRowIndex
+ * @param {'прикрепление'|'открепление'} operationType
+ * @returns {string}
+ */
+function extractBlockServiceDate(rawData, headerRowIndex, operationType) {
+  const start = Math.max(0, headerRowIndex - 20);
+
+  for (let i = start; i < headerRowIndex; i++) {
+    const row = rawData[i] ?? [];
+
+    for (let j = 0; j < row.length; j++) {
+      const label = normalizeHeader(String(row[j] ?? ''));
+      if (!label) {
+        continue;
+      }
+
+      const isDetachLabel = label.includes('снять с');
+      const isAttachLabel = label.includes('прикреп') && (label.includes(' с') || label.endsWith('с'));
+      if (operationType === 'открепление' && !isDetachLabel) {
+        continue;
+      }
+      if (operationType === 'прикрепление' && !isAttachLabel) {
+        continue;
+      }
+
+      for (let k = j + 1; k < row.length; k++) {
+        const value = formatCellValue(row[k], operationType === 'открепление' ? 'service_end' : 'service_start');
+        if (isDateLike(value)) {
+          return normalizeSlashDate(value);
+        }
+      }
+    }
+  }
+
+  return '';
+}
+
+/**
+ * @param {object} person
+ * @param {string} blockDate
+ * @param {'прикрепление'|'открепление'} operationType
+ * @returns {object}
+ */
+function applyBlockDates(person, blockDate, operationType) {
+  if (!blockDate) {
+    return person;
+  }
+
+  if (operationType === 'открепление') {
+    person.service_end = blockDate;
+  } else if (operationType === 'прикрепление') {
+    person.service_start = blockDate;
+  }
+
+  return person;
+}
+
+/**
+ * @param {string} filePath
+ * @returns {string[]}
+ */
+function listParseableSheetNames(filePath) {
+  const fullPath = resolve(process.cwd(), filePath);
+  const ext = extname(fullPath).toLowerCase();
+  if (ext === '.csv') {
+    return [];
+  }
+
+  const fileBuffer = readFileSync(fullPath);
+  const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+  const names = workbook.SheetNames.filter(name => !/xlr|norange/i.test(name));
+
+  return names.length > 0 ? names : workbook.SheetNames;
+}
+
+function headerMatchesAnyAlias(header, aliasOrField) {
+  const fieldAliases = getColumnAliases();
+  let aliases = fieldAliases[aliasOrField];
+
+  if (!aliases) {
+    const fieldEntry = Object.entries(fieldAliases).find(([, list]) => list.includes(aliasOrField));
+    if (fieldEntry) {
+      aliases = fieldEntry[1];
+    }
+  }
+
+  return (aliases ?? [aliasOrField]).some(alias => headerMatches(header, alias));
+}
+
+/**
+ * @param {any[][]} rawData
+ * @returns {number[]}
+ */
+function findAllHeaderRowIndexes(rawData) {
+  const detection = getParserConfig().header_detection;
+  const groups = detection.required_alias_groups
+    || [detection.required_aliases || ['фамилия', 'имя']];
+  const indexes = [];
+
+  for (let i = 0; i < rawData.length; i++) {
+    const normalized = rawData[i].map(normalizeHeader);
+    const matchesGroup = groups.some(group =>
+      group.every(aliasOrField => normalized.some(h => headerMatchesAnyAlias(h, aliasOrField))),
+    );
+    if (matchesGroup) {
+      indexes.push(i);
+    }
+  }
+
+  return indexes;
+}
+
+/**
+ * @param {any[][]} rawData
+ * @param {string} contextPath
+ * @returns {object[]}
+ */
+function parseInsuredFromRawData(rawData, contextPath) {
+  const errors = getParserConfig().errors;
+  const headerIndices = findAllHeaderRowIndexes(rawData);
+
+  if (headerIndices.length === 0) {
+    throw new Error(errors.no_header_row);
+  }
+
+  const persons = [];
+  let hasOperationType = false;
+
+  for (let b = 0; b < headerIndices.length; b++) {
+    const headerRowIndex = headerIndices[b];
+    const endRow = headerIndices[b + 1] ?? rawData.length;
+    const colMap = buildInsuredColumnMap(rawData[headerRowIndex]);
+    const serialColIndex = findSerialColumnIndex(rawData[headerRowIndex]);
+    const operationType = detectOperationType(rawData, headerRowIndex, contextPath);
+
+    if (!operationType) {
+      continue;
+    }
+
+    hasOperationType = true;
+    const blockDate = extractBlockServiceDate(rawData, headerRowIndex, operationType);
+
+    for (let i = headerRowIndex + 1; i < endRow; i++) {
+      const row = rawData[i];
+      if (!isInsuredDataRow(row, colMap, serialColIndex)) {
+        continue;
+      }
+
+      let person = rowToInsuredPerson(row, colMap, operationType);
+      person = applyBlockDates(person, blockDate, operationType);
+      persons.push(finalizeInsuredPerson(person, contextPath));
+    }
+  }
+
+  if (!hasOperationType) {
+    throw new Error(errors.no_operation_type);
+  }
+
+  if (persons.length === 0) {
+    throw new Error('AI не нашёл записей в файле');
+  }
+
+  return persons;
+}
+
 /**
  * Ищет строку с заголовками таблицы (Фамилия, Имя, ...).
  * @param {any[][]} rawData
  * @returns {number}
  */
 function findHeaderRowIndex(rawData) {
-  const detection = getParserConfig().header_detection;
-  const groups = detection.required_alias_groups
-    || [detection.required_aliases || ['фамилия', 'имя']];
-
-  for (let i = 0; i < rawData.length; i++) {
-    const normalized = rawData[i].map(normalizeHeader);
-    const matchesGroup = groups.some(group =>
-      group.every(alias => normalized.some(h => headerMatches(h, alias))),
-    );
-    if (matchesGroup) {
-      return i;
-    }
-  }
-  return -1;
+  const indexes = findAllHeaderRowIndexes(rawData);
+  return indexes.length > 0 ? indexes[0] : -1;
 }
 
 /**
@@ -390,21 +626,24 @@ function isInsuredDataRow(row, colMap, serialColIndex = -1) {
   if (nonEmpty.length === 0) return false;
 
   const joined = row.join(' ').toUpperCase();
-  if (config.skip_row_keywords.some(kw => joined.includes(kw))) {
-    return false;
-  }
 
   const serialColumns = config.serial_columns.map(normalizeHeader);
   const firstCell = normalizeHeader(row[0]);
   if (serialColumns.includes(firstCell) || firstCell === 'фамилия' || firstCell === 'фио') return false;
   if (firstCell.startsWith('№') && firstCell.includes('п/п')) return false;
 
-  if (rules.require_serial_number && serialColIndex >= 0) {
-    const serial = row[serialColIndex];
-    const serialNum = Number(serial);
-    if (!Number.isFinite(serialNum) || serialNum <= 0 || !Number.isInteger(serialNum)) {
-      return false;
-    }
+  let hasValidSerial = false;
+  if (serialColIndex >= 0) {
+    const serialNum = Number(row[serialColIndex]);
+    hasValidSerial = Number.isFinite(serialNum) && serialNum > 0 && Number.isInteger(serialNum);
+  }
+
+  if (rules.require_serial_number && serialColIndex >= 0 && !hasValidSerial) {
+    return false;
+  }
+
+  if (!hasValidSerial && config.skip_row_keywords.some(kw => joined.includes(kw))) {
+    return false;
   }
 
   const surname = colMap.surname !== undefined ? String(row[colMap.surname] ?? '').trim() : '';
@@ -418,6 +657,20 @@ function isInsuredDataRow(row, colMap, serialColIndex = -1) {
 
   if (rules.require_surname && !surname && !fio) return false;
   if (rules.require_name_or_policy && !(name || policy || fio)) return false;
+
+  if (rules.require_birth_date_when_mapped && colMap.birth_date !== undefined) {
+    const birth = formatCellValue(row[colMap.birth_date], 'birth_date');
+    if (!isDateLike(birth)) {
+      return false;
+    }
+  }
+
+  if (rules.require_policy_digits_when_mapped && colMap.policy_number !== undefined) {
+    const policyNumber = String(row[colMap.policy_number] ?? '').trim();
+    if (!/\d/.test(policyNumber)) {
+      return false;
+    }
+  }
 
   return true;
 }
@@ -442,10 +695,19 @@ function rowToInsuredPerson(row, colMap, operationType = '') {
   let patronymic = get('patronymic');
 
   if (colMap.fio !== undefined) {
-    const fio = splitFio(row[colMap.fio]);
-    if (!surname) surname = fio.surname;
-    if (!name) name = fio.name;
-    if (!patronymic) patronymic = fio.patronymic;
+    const fioIdx = colMap.fio;
+    const parsed = splitFio(get('fio'));
+    const fromSameFioColumn = (idx) => idx === fioIdx;
+
+    if (!surname || fromSameFioColumn(colMap.surname)) {
+      surname = parsed.surname;
+    }
+    if (!name || fromSameFioColumn(colMap.name)) {
+      name = parsed.name;
+    }
+    if (!patronymic || fromSameFioColumn(colMap.patronymic)) {
+      patronymic = parsed.patronymic;
+    }
   } else {
     surname = normalizePersonCase(surname);
     name = normalizePersonCase(name);
@@ -466,9 +728,177 @@ function rowToInsuredPerson(row, colMap, operationType = '') {
     policy_number: get('policy_number'),
     service_start: get('service_start'),
     service_end: get('service_end'),
-    program: normalizeProgram(get('program')),
+    program: get('program') ? normalizeProgram(get('program')) : '',
     workplace: get('workplace'),
   };
+}
+
+function normalizeSlashDate(value) {
+  const text = String(value ?? '').trim();
+  const slashMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) {
+    return `${slashMatch[1]}.${slashMatch[2]}.${slashMatch[3]}`;
+  }
+
+  return text;
+}
+
+function normalizeAlphaDate(value) {
+  if (value === '' || value === null || value === undefined) {
+    return '';
+  }
+
+  const config = getParserConfig();
+  const { min_serial, max_serial, min_year, max_year } = config.excel_date;
+
+  if (typeof value === 'number' && value > min_serial && value < max_serial) {
+    try {
+      const d = SSF.parse_date_code(value);
+      if (d && d.y >= min_year && d.y <= max_year) {
+        return `${String(d.d).padStart(2, '0')}.${String(d.m).padStart(2, '0')}.${d.y}`;
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  return normalizeSlashDate(String(value).trim());
+}
+
+function normalizeAlphaGender(value) {
+  const gender = String(value ?? '').trim().toUpperCase();
+  if (gender === 'F' || gender === 'Ж') return 'Ж';
+  if (gender === 'M' || gender === 'М') return 'М';
+
+  return gender;
+}
+
+/**
+ * @param {any[]} headerRow
+ * @returns {boolean}
+ */
+function isAlphaAllExportHeaderRow(headerRow) {
+  const config = getParserConfig().alpha_all_export;
+  if (!config?.required_headers?.length) {
+    return false;
+  }
+
+  const headers = new Set(headerRow.map(cell => normalizeHeader(String(cell))));
+  return config.required_headers.every(
+    header => headers.has(normalizeHeader(header)),
+  );
+}
+
+/**
+ * @param {string} dateFrom
+ * @param {string} dateCancel
+ * @returns {'прикрепление'|'открепление'|''}
+ */
+function detectAlphaOperationType(dateFrom, dateCancel) {
+  const from = normalizeAlphaDate(dateFrom);
+  const cancel = normalizeAlphaDate(dateCancel);
+
+  if (!from || !cancel) {
+    return '';
+  }
+
+  if (from === cancel) {
+    return 'прикрепление';
+  }
+
+  return 'открепление';
+}
+
+/**
+ * @param {unknown} riskCode
+ * @param {unknown} medProgShort
+ * @param {unknown} [progName]
+ * @returns {string}
+ */
+function resolveAlphaProgram(riskCode, medProgShort, progName = '') {
+  const config = getParserConfig().alpha_all_export?.risk_code_map ?? {};
+  const risk = String(riskCode ?? '').trim().toUpperCase();
+
+  if (risk && config[risk]) {
+    return config[risk];
+  }
+
+  return normalizeProgram(
+    [riskCode, medProgShort, progName].filter(part => String(part ?? '').trim() !== '').join(' '),
+  );
+}
+
+/**
+ * Парсинг сводного выгрузки АО «АльфаСтрахование» (лист ALL, английские заголовки).
+ * Тип операции по строке: date_cancel = date_from → прикрепление, иначе → открепление.
+ *
+ * @param {string} filePath
+ * @param {object} [options]
+ * @returns {object[]}
+ */
+export function parseAlphaAllExport(filePath, options = {}) {
+  const excelData = readExcel(filePath, {
+    sheetName: options.sheetName,
+    sheetIndex: options.sheetIndex,
+    headerRow: true,
+  });
+
+  if (!isAlphaAllExportHeaderRow(excelData.headers)) {
+    throw new Error('Файл не является сводной выгрузкой АльфаСтрахование (ALL)');
+  }
+
+  const seen = new Set();
+  const persons = [];
+
+  for (const row of excelData.rows) {
+    const policyNumber = String(row.policy_number ?? '').trim();
+    if (!policyNumber) {
+      continue;
+    }
+
+    const operationType = detectAlphaOperationType(row.date_from, row.date_cancel);
+    if (!operationType) {
+      continue;
+    }
+
+    const dedupeKey = `${policyNumber}|${operationType}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+
+    const fio = splitFio(row.fio ?? '');
+    const dateFrom = normalizeAlphaDate(row.date_from);
+    const dateTo = normalizeAlphaDate(row.date_to);
+    const dateCancel = normalizeAlphaDate(row.date_cancel);
+
+    const serviceStart = operationType === 'прикрепление' ? dateFrom : dateCancel;
+    const serviceEnd = operationType === 'прикрепление' ? dateTo : dateCancel;
+
+    persons.push({
+      operation_type: operationType,
+      surname: fio.surname,
+      name: fio.name,
+      patronymic: fio.patronymic,
+      birth_date: normalizeAlphaDate(row.birth_date),
+      gender: normalizeAlphaGender(row.person_sex),
+      address: String(row.address ?? '').trim(),
+      phone_home: String(row.phone_home ?? '').trim(),
+      phone_work: String(row.phone_office ?? '').trim(),
+      phone_mobile: String(row.per_mobile_phone ?? row.add_phone ?? '').trim(),
+      policy_number: policyNumber,
+      service_start: serviceStart,
+      service_end: serviceEnd,
+      program: resolveAlphaProgram(row.risk_code, row.med_prog_short, row.prog_name),
+      workplace: String(row.insurer ?? row.company_of_work ?? '').trim(),
+    });
+  }
+
+  if (persons.length === 0) {
+    throw new Error('В сводной выгрузке АльфаСтрахование не найдено записей');
+  }
+
+  return persons;
 }
 
 /**
@@ -482,37 +912,54 @@ function rowToInsuredPerson(row, colMap, operationType = '') {
  * @returns {object[]}
  */
 export function parseInsuredPersons(filePath, options = {}) {
-  const excelData = readExcel(filePath, {
-    sheetName: options.sheetName,
-    sheetIndex: options.sheetIndex,
-    headerRow: false,
-  });
+  const contextPath = options.filename || filePath;
 
-  const headerRowIndex = findHeaderRowIndex(excelData.raw);
-  const errors = getParserConfig().errors;
+  const tryParseRaw = (raw) => {
+    if (raw.length > 0 && isAlphaAllExportHeaderRow(raw[0])) {
+      return parseAlphaAllExport(filePath, options);
+    }
 
-  if (headerRowIndex === -1) {
-    throw new Error(errors.no_header_row);
+    return parseInsuredFromRawData(raw, contextPath);
+  };
+
+  if (options.sheetName) {
+    const excelData = readExcel(filePath, {
+      sheetName: options.sheetName,
+      sheetIndex: options.sheetIndex,
+      headerRow: false,
+    });
+
+    return tryParseRaw(excelData.raw);
   }
 
-  const colMap = buildInsuredColumnMap(excelData.raw[headerRowIndex]);
-  const serialColIndex = findSerialColumnIndex(excelData.raw[headerRowIndex]);
-  const operationType = detectOperationType(excelData.raw, headerRowIndex, filePath);
+  if (options.sheetIndex != null) {
+    const excelData = readExcel(filePath, {
+      sheetIndex: options.sheetIndex,
+      headerRow: false,
+    });
 
-  if (!operationType) {
-    throw new Error(errors.no_operation_type);
+    return tryParseRaw(excelData.raw);
   }
 
-  const persons = [];
+  const sheetNames = listParseableSheetNames(filePath);
+  let lastError = null;
 
-  for (let i = headerRowIndex + 1; i < excelData.raw.length; i++) {
-    const row = excelData.raw[i];
-    if (isInsuredDataRow(row, colMap, serialColIndex)) {
-      persons.push(rowToInsuredPerson(row, colMap, operationType));
+  for (const sheetName of sheetNames) {
+    try {
+      const excelData = readExcel(filePath, { sheetName, headerRow: false });
+      return tryParseRaw(excelData.raw);
+    } catch (error) {
+      lastError = error;
     }
   }
 
-  return persons;
+  if (lastError) {
+    throw lastError;
+  }
+
+  const excelData = readExcel(filePath, { headerRow: false });
+
+  return tryParseRaw(excelData.raw);
 }
 
 /**

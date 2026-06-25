@@ -97,6 +97,9 @@ function parseArgs() {
       case '--llm':
         parsed.llm = true;
         break;
+      case '--filename':
+        parsed.filename = args[++i];
+        break;
       case '--config': case '-c':
         parsed.config = args[++i];
         break;
@@ -151,7 +154,7 @@ async function main() {
     // parse_data: по умолчанию детерминированный парсер (без LLM)
     if (args.type === 'parse_data' && !args.llm) {
       log(`[1/2] Чтение и парсинг файла: ${args.file}`);
-      const parseOptions = { sheetName: args.sheet };
+      const parseOptions = { sheetName: args.sheet, filename: args.filename };
       if (args.config) {
         log(`      Конфиг: ${args.config}`);
       }

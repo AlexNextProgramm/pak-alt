@@ -142,6 +142,57 @@ class Client
     }
 
     /**
+     * @return array{success: bool, error?: string}
+     */
+    public function ensureFolder(string $folder): array
+    {
+        $folder = trim($folder);
+        if ($folder === '') {
+            return [
+                'success' => false,
+                'error' => 'Не указано имя папки',
+            ];
+        }
+
+        $connectResult = $this->connect();
+        if (!$connectResult['success']) {
+            return $connectResult;
+        }
+
+        try {
+            $foldersResult = $this->getFolders();
+            if (!$foldersResult['success']) {
+                return [
+                    'success' => false,
+                    'error' => (string)($foldersResult['error'] ?? 'Не удалось получить список папок'),
+                ];
+            }
+
+            $existing = $foldersResult['folders'] ?? [];
+            if (in_array($folder, $existing, true)) {
+                return ['success' => true];
+            }
+
+            $mailbox = $this->buildMailboxString($folder);
+            if (!imap_createmailbox($this->connection, $mailbox)) {
+                return [
+                    'success' => false,
+                    'error' => $this->lastImapError('Не удалось создать папку ' . $folder),
+                ];
+            }
+
+            return ['success' => true];
+        } catch (\Throwable $error) {
+            error_log('IMAP ensureFolder: ' . $error->getMessage());
+
+            return [
+                'success' => false,
+                'error' => $error->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * @return array{success: bool, messages?: array<int, array<string, mixed>>, total?: int, error?: string}
      */
     public function getMessagesPaginated(
@@ -662,7 +713,15 @@ class Client
                 ? (string)($index + 1)
                 : $partNumber . '.' . ($index + 1);
 
-            $partData = $this->extractBody($uid, $partStructure, $currentPartNumber);
+            $effectiveStructure = $partStructure;
+            if ($this->isEmbeddedMessagePart($partStructure) && !$this->hasSubParts($partStructure)) {
+                $embeddedStructure = $this->fetchPartStructureByUid($uid, $currentPartNumber);
+                if ($embeddedStructure !== null) {
+                    $effectiveStructure = $embeddedStructure;
+                }
+            }
+
+            $partData = $this->extractBody($uid, $effectiveStructure, $currentPartNumber);
             $bodyText = $bodyText ?? $partData['body_text'];
             $bodyHtml = $bodyHtml ?? $partData['body_html'];
             $attachments = [...$attachments, ...$partData['attachments']];
@@ -714,6 +773,28 @@ class Client
             TYPEMODEL => 'model',
             default => 'application',
         };
+    }
+
+    private function hasSubParts(object $structure): bool
+    {
+        return isset($structure->parts) && is_array($structure->parts) && $structure->parts !== [];
+    }
+
+    private function isEmbeddedMessagePart(object $structure): bool
+    {
+        return (int)($structure->type ?? 0) === TYPEMESSAGE
+            && strtolower((string)($structure->subtype ?? '')) === 'rfc822';
+    }
+
+    private function fetchPartStructureByUid(int $uid, string $partNumber): ?object
+    {
+        if ($this->connection === null) {
+            return null;
+        }
+
+        $structure = @imap_bodystruct($this->connection, $uid, $partNumber, FT_UID);
+
+        return $structure !== false ? $structure : null;
     }
 
     private function partFilename(object $structure): ?string

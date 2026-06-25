@@ -165,10 +165,6 @@ if (page) {
             return;
         }
 
-        // Определяем колонки из первой записи
-        const columns = Object.keys(data[0]);
-
-        // Заголовки с человеческими названиями
         const columnLabels: Record<string, string> = {
             operation_type: 'Тип операции',
             surname: 'Фамилия',
@@ -187,29 +183,84 @@ if (page) {
             workplace: 'Место работы',
         };
 
-        // Строим заголовки
+        const columnOrder = [
+            'operation_type',
+            'surname',
+            'name',
+            'patronymic',
+            'birth_date',
+            'gender',
+            'policy_number',
+            'service_start',
+            'service_end',
+            'program',
+            'workplace',
+            'address',
+            'phone_home',
+            'phone_work',
+            'phone_mobile',
+        ];
+
+        const stickyColumns = ['surname', 'name', 'patronymic'];
+
+        const hasCellValue = (value: unknown) => {
+            if (value === null || value === undefined) return false;
+            return String(value).trim() !== '';
+        };
+
+        const availableColumns = columnOrder.filter((col) => col in data[0]);
+        const columns = availableColumns.filter((col) =>
+            data.some((row) => hasCellValue(row[col])),
+        );
+
+        const formatCell = (value: unknown) => {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
+        };
+
         resultThead.innerHTML = '';
         const headerRow = document.createElement('tr');
+        const stickyOffsets: Record<string, number> = {};
+        let stickyLeft = 0;
+
         columns.forEach((col) => {
             const th = document.createElement('th');
             th.textContent = columnLabels[col] || col;
+            th.dataset.col = col;
+
+            if (stickyColumns.includes(col)) {
+                th.classList.add('page-ai__result-sticky');
+                stickyOffsets[col] = stickyLeft;
+                th.style.left = `${stickyLeft}px`;
+                stickyLeft += col === 'surname' ? 120 : col === 'name' ? 100 : 130;
+            }
+
+            if (col === 'address') {
+                th.classList.add('page-ai__result-col--wide');
+            }
+
             headerRow.appendChild(th);
         });
         resultThead.appendChild(headerRow);
 
-        // Строим тело таблицы
         resultTbody.innerHTML = '';
         data.forEach((row) => {
             const tr = document.createElement('tr');
             columns.forEach((col) => {
                 const td = document.createElement('td');
-                let val = row[col];
-                if (val === null || val === undefined) {
-                    val = '';
-                } else if (typeof val === 'object') {
-                    val = JSON.stringify(val);
+                td.textContent = formatCell(row[col]);
+                td.dataset.col = col;
+
+                if (stickyColumns.includes(col)) {
+                    td.classList.add('page-ai__result-sticky');
+                    td.style.left = `${stickyOffsets[col]}px`;
                 }
-                td.textContent = String(val);
+
+                if (col === 'address') {
+                    td.classList.add('page-ai__result-col--wide');
+                }
+
                 tr.appendChild(td);
             });
             resultTbody.appendChild(tr);
@@ -218,6 +269,10 @@ if (page) {
         resultCount.textContent = `Найдено записей: ${count}`;
         resultBlock.style.display = 'block';
         if (errorBlock) errorBlock.style.display = 'none';
+
+        if (resultTableWrap) {
+            resultTableWrap.scrollLeft = 0;
+        }
     }
 
     // ===== Редактор конфига =====

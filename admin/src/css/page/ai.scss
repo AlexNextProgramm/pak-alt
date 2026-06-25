@@ -184,11 +184,14 @@
     overflow-x: auto;
     border: 1px solid var(--line-2, #e5e7eb);
     border-radius: 12px;
+    -webkit-overflow-scrolling: touch;
   }
 
   &__result-table {
-    width: 100%;
-    border-collapse: collapse;
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 13px;
 
     thead th {
@@ -206,15 +209,37 @@
       border-bottom: 1px solid var(--line-2, #f3f4f6);
       color: var(--text, #374151);
       white-space: nowrap;
+      background: var(--bg-1, #fff);
     }
 
     tbody tr:last-child td {
       border-bottom: none;
     }
 
-    tbody tr:hover {
+    tbody tr:hover td {
       background: var(--bg-hover, #f9fafb);
     }
+
+    tbody tr:hover td.page-ai__result-sticky {
+      background: var(--bg-hover, #f9fafb);
+    }
+  }
+
+  &__result-sticky {
+    position: sticky;
+    z-index: 2;
+    box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.08);
+
+    thead & {
+      z-index: 3;
+      background: var(--bg-2, #f3f4f6);
+    }
+  }
+
+  &__result-col--wide {
+    white-space: normal;
+    min-width: 220px;
+    max-width: 320px;
   }
 
   // ===== Ошибка =====
