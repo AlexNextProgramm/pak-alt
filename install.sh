@@ -6,7 +6,7 @@
 # Модули установки: script/bash/*.sh
 # ============================================================
 
-set -euo pipefail
+set -uo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 SCRIPT_DIR="$PROJECT_DIR/script/bash"

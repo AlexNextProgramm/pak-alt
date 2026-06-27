@@ -21,7 +21,13 @@ prompt_nginx_server_name() {
 }
 
 configure_nginx_site() {
+    log "PROJECT_DIR=$PROJECT_DIR"
+    log "WWW_LINK=$WWW_LINK"
+    log "NGINX_CONF=$NGINX_CONF"
+    log "PHP_FPM_SOCK=${PHP_FPM_SOCK:-не задан}"
+
     detect_apps
+    log "HAS_ADMIN=$HAS_ADMIN HAS_SITE=$HAS_SITE"
 
     if ! $HAS_ADMIN && ! $HAS_SITE; then
         log "Ошибка: не найдены каталоги admin/public или site/public в $PROJECT_DIR"
