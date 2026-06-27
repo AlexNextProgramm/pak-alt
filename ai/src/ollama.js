@@ -1,8 +1,10 @@
 import fetch from 'node-fetch';
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const CONFIG_PATH = resolve(import.meta.dirname, '../config/types.json');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CONFIG_PATH = resolve(__dirname, '../config/types.json');
 
 /**
  * Загружает конфиг из config/types.json
