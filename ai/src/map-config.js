@@ -1,7 +1,9 @@
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const DEFAULT_CONFIG_PATH = resolve(import.meta.dirname, '../mamp/parse-insured.json');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_CONFIG_PATH = resolve(__dirname, '../mamp/parse-insured.json');
 
 let cachedConfig = null;
 let currentConfigPath = DEFAULT_CONFIG_PATH;
