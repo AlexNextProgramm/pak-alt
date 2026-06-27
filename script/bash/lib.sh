@@ -232,6 +232,40 @@ print_install_help() {
 EOF
 }
 
+list_install_modules() {
+    local modules=()
+    local module_sh module_name MODULE_TITLE MODULE_FUNC
+
+    for module_sh in "$SCRIPT_DIR"/*.sh; do
+        module_name="$(basename "$module_sh")"
+        case "$module_name" in
+            lib.sh|cli.sh) continue ;;
+        esac
+
+        MODULE_TITLE=""
+        MODULE_FUNC=""
+
+        # shellcheck source=/dev/null
+        source "$module_sh"
+
+        if [ -n "$MODULE_TITLE" ] && [ -n "$MODULE_FUNC" ]; then
+            modules+=("${module_name%.sh}")
+        fi
+    done
+
+    echo ""
+    echo "Доступные модули install.sh:"
+    echo ""
+
+    for mod in "${modules[@]}"; do
+        printf "  %-15s ./install.sh -m %s\n" "$mod" "$mod"
+    done
+
+    echo ""
+    echo "Пример: ./install.sh -m mysql"
+    echo ""
+}
+
 run_install_module() {
     local key="${1,,}"
     local module_file="$SCRIPT_DIR/${key}.sh"

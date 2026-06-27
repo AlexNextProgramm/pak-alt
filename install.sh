@@ -32,6 +32,11 @@ parse_install_args "$@"
 
 cd "$PROJECT_DIR"
 
+if [ "$ONLY_MODULE" = "ls" ]; then
+    list_install_modules
+    exit 0
+fi
+
 if [ -n "$ONLY_MODULE" ]; then
     log "=== Установка модуля ($ONLY_MODULE) — проект $PROJECT_NAME ==="
     log "PROJECT_DIR=$PROJECT_DIR"
