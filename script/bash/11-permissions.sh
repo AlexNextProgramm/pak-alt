@@ -15,4 +15,6 @@ setup_permissions() {
     done
 
     sudo chmod -R 755 "$PROJECT_DIR" 2>/dev/null || true
+    log "Установка владельца www-data на проект..."
+    sudo chown -R www-data:www-data "$PROJECT_DIR" 2>/dev/null || true
 }
