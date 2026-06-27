@@ -36,4 +36,34 @@ install_php() {
     fi
 
     export PHP_FPM_SOCK
+
+    # Установка Composer
+    if command_exists composer; then
+        log "Composer уже установлен."
+    else
+        log "Установка Composer..."
+        local composer_setup="/tmp/composer-setup.php"
+        local composer_sig="/tmp/composer-setup.sig"
+
+        php -r "copy('https://getcomposer.org/installer', '${composer_setup}');"
+        php -r "copy('https://composer.github.io/installer.sig', '${composer_sig}');"
+
+        if [ -f "$composer_setup" ] && [ -f "$composer_sig" ]; then
+            local expected_sig
+            expected_sig="$(cat "$composer_sig")"
+            local actual_sig
+            actual_sig="$(php -r "echo hash_file('sha384', '${composer_setup}');")"
+
+            if [ "$expected_sig" = "$actual_sig" ]; then
+                php "$composer_setup" --install-dir=/usr/local/bin --filename=composer --quiet 2>&1 | tee -a "$LOG_FILE"
+                log "Composer установлен."
+            else
+                log "Ошибка: подпись Composer не совпадает. Установка пропущена."
+            fi
+
+            rm -f "$composer_setup" "$composer_sig"
+        else
+            log "Не удалось загрузить Composer. Установка пропущена."
+        fi
+    fi
 }
