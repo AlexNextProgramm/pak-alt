@@ -234,6 +234,13 @@ EOF
 
 run_install_module() {
     local key="${1,,}"
+    local module_file="$SCRIPT_DIR/${key}.sh"
+
+    # source модуля, если файл существует (функции объявлены в module/*.sh)
+    if [ -f "$module_file" ]; then
+        # shellcheck source=/dev/null
+        source "$module_file"
+    fi
 
     case "$key" in
         symlink)
