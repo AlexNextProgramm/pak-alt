@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Итог"
+MODULE_FUNC="print_summary"
+
 print_summary() {
     detect_apps
 

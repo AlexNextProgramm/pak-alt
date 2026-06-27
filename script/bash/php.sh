@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="PHP-FPM"
+MODULE_FUNC="install_php"
+
 install_php() {
     log "Проверка PHP-FPM и расширений..."
     install_packages \

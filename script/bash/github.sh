@@ -6,6 +6,9 @@
 # ключ, ждёт подтверждения и проверяет рукопожатие.
 # ============================================================
 
+MODULE_TITLE="GitHub SSH"
+MODULE_FUNC="setup_github_ssh"
+
 SSH_DIR="$PROJECT_DIR/ssh"
 SSH_KEY="$SSH_DIR/id_ed25519_github"
 SSH_KEY_PUB="$SSH_KEY.pub"

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Права доступа"
+MODULE_FUNC="setup_permissions"
+
 setup_permissions() {
     log "Настройка прав доступа..."
 

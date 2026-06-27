@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Git"
+MODULE_FUNC="install_git"
+
 install_git() {
     log "Проверка Git..."
     install_packages git

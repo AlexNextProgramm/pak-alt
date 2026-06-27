@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ============================================================
-# deploy.sh — автоматический деплой для проекта Gorning
+# deploy.sh — автоматический деплой для проекта
 # Запускается на кроне каждую минуту.
 # Проверяет git-изменения, накатывает миграции и собирает
-# frontend (admin + site) при необходимости.
+# frontend при необходимости.
 # ============================================================
 
 set -e
@@ -19,36 +19,20 @@ BRANCH="main"
 # Путь определяется автоматически — откуда запущен скрипт
 PROJECT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 LOG_FILE="$PROJECT_DIR/log/deploy.log"
-LOCK_FILE="/tmp/gorning-deploy.lock"
-
-# Цвета для вывода
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+LOCK_FILE="/tmp/$(basename "$PROJECT_DIR")-deploy.lock"
 
 # Создаём директорию для логов, если её нет
 mkdir -p "$(dirname "$LOG_FILE")"
 
-log() {
-    local message="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
-    echo -e "$message"
-    echo "$message" >> "$LOG_FILE"
-}
+# Подключаем общие функции (log, log_success, log_warning, log_error,
+# detect_app_dirs, has_lock_file, install_dependencies, update_composer, build_frontend)
+# shellcheck source=script/bash/lib.sh
+source "$PROJECT_DIR/script/bash/lib.sh"
 
-log_success() {
-    log "${GREEN}$1${NC}"
-}
+# ═══════════════════════════════════════════════════════════
+# БЛОКИРОВКА
+# ═══════════════════════════════════════════════════════════
 
-log_warning() {
-    log "${YELLOW}$1${NC}"
-}
-
-log_error() {
-    log "${RED}$1${NC}"
-}
-
-# Проверка блокировки — чтобы не запустить два экземпляра одновременно
 if [ -f "$LOCK_FILE" ]; then
     LOCK_PID=$(cat "$LOCK_FILE")
     if kill -0 "$LOCK_PID" 2>/dev/null; then
@@ -62,7 +46,6 @@ fi
 
 echo $$ > "$LOCK_FILE"
 
-# Функция очистки lock-файла при выходе
 cleanup() {
     rm -f "$LOCK_FILE"
 }
@@ -70,41 +53,27 @@ trap cleanup EXIT
 
 cd "$PROJECT_DIR"
 
-# --- Шаг 0: проверка зависимостей (первичная установка) ---
+# ═══════════════════════════════════════════════════════════
+# ШАГ 0: сканируем папки с composer.json / package.json
+# ═══════════════════════════════════════════════════════════
 
-install_dependencies() {
-    local app_dir="$1"
-    local app_name="$2"
+log "Сканирование директорий с composer.json / package.json..."
+APP_LIST=($(detect_app_dirs))
 
-    # Проверяем vendor (composer)
-    if [ ! -d "$app_dir/vendor" ]; then
-        log "vendor не найден в $app_name. Устанавливаем composer dependencies..."
-        cd "$app_dir"
-        if composer install --no-interaction 2>&1 >> "$LOG_FILE"; then
-            log_success "composer install ($app_name): успешно"
-        else
-            log_error "composer install ($app_name): ошибка!"
-        fi
-        cd "$PROJECT_DIR"
-    fi
+if [ ${#APP_LIST[@]} -eq 0 ]; then
+    log_warning "Не найдено ни одного приложения с composer.json или package.json."
+fi
 
-    # Проверяем node_modules
-    if [ ! -d "$app_dir/node_modules" ]; then
-        log "node_modules не найден в $app_name. Устанавливаем npm dependencies..."
-        cd "$app_dir"
-        if npm install 2>&1 >> "$LOG_FILE"; then
-            log_success "npm install ($app_name): успешно"
-        else
-            log_error "npm install ($app_name): ошибка!"
-        fi
-        cd "$PROJECT_DIR"
-    fi
-}
+# Устанавливаем зависимости, если нет lock-файлов
+for entry in "${APP_LIST[@]}"; do
+    app_dir="${entry%%:*}"
+    app_name="${entry##*:}"
+    install_dependencies "$app_dir" "$app_name"
+done
 
-install_dependencies "$PROJECT_DIR/admin" "admin"
-install_dependencies "$PROJECT_DIR/site" "site"
-
-# --- Шаг 1: проверяем ветку и стягиваем изменения ---
+# ═══════════════════════════════════════════════════════════
+# ШАГ 1: проверяем ветку и стягиваем изменения
+# ═══════════════════════════════════════════════════════════
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
@@ -137,90 +106,51 @@ log_success "Обнаружены новые коммиты: $OLD_HEAD → $NEW_
 # Список изменённых файлов между старым и новым HEAD
 CHANGED_FILES=$(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
 
-# --- Шаг 2: проверяем composer.json (обновление PHP-зависимостей) ---
+# ═══════════════════════════════════════════════════════════
+# ШАГ 2: обновление composer при изменении composer.json
+# ═══════════════════════════════════════════════════════════
 
-update_composer() {
-    local app_dir="$1"
-    local app_name="$2"
-    local composer_path="${app_dir#${PROJECT_DIR}/}composer.json"
+for entry in "${APP_LIST[@]}"; do
+    app_dir="${entry%%:*}"
+    app_name="${entry##*:}"
 
-    if echo "$CHANGED_FILES" | grep -q "^${composer_path}"; then
-        log "Обнаружены изменения в composer.json ($app_name). Обновляем composer dependencies..."
-        cd "$app_dir"
-        if composer update --no-interaction --with-dependencies 2>&1 >> "$LOG_FILE"; then
-            log_success "composer update ($app_name): успешно"
-        else
-            log_error "composer update ($app_name): ошибка!"
-        fi
-        cd "$PROJECT_DIR"
-    else
-        log "Изменений в composer.json ($app_name) нет. Пропускаем."
+    if [ -f "$app_dir/composer.json" ]; then
+        update_composer "$app_dir" "$app_name"
     fi
-}
+done
 
-update_composer "$PROJECT_DIR/admin" "admin"
-update_composer "$PROJECT_DIR/site" "site"
-
-# --- Шаг 3: проверяем миграции ---
+# ═══════════════════════════════════════════════════════════
+# ШАГ 3: проверяем миграции
+# ═══════════════════════════════════════════════════════════
 
 if echo "$CHANGED_FILES" | grep -q "^migrations/"; then
     log "Обнаружены изменения в migrations/. Накатываем миграции..."
 
-    # Admin
-    log "Миграции admin..."
-    cd "$PROJECT_DIR/admin"
-    if php pet migrate 2>&1 >> "$LOG_FILE"; then
-        log_success "Миграции admin: успешно"
-    else
-        log_error "Миграции admin: ошибка!"
-    fi
+    for entry in "${APP_LIST[@]}"; do
+        app_dir="${entry%%:*}"
+        app_name="${entry##*:}"
 
-    # Site
-    log "Миграции site..."
-    cd "$PROJECT_DIR/site"
-    if php pet migrate 2>&1 >> "$LOG_FILE"; then
-        log_success "Миграции site: успешно"
-    else
-        log_error "Миграции site: ошибка!"
-    fi
-
-    cd "$PROJECT_DIR"
+        if [ -f "$app_dir/pet" ]; then
+            log "Миграции $app_name..."
+            (cd "$app_dir" && php pet migrate) 2>&1 | tee -a "$LOG_FILE"
+            log_success "Миграции $app_name: успешно"
+        fi
+    done
 else
     log "Изменений в migrations/ нет. Пропускаем миграции."
 fi
 
-# --- Шаг 4: проверяем frontend (admin/src) ---
+# ═══════════════════════════════════════════════════════════
+# ШАГ 4: сборка frontend при изменении src/ или package.json
+# ═══════════════════════════════════════════════════════════
 
-if echo "$CHANGED_FILES" | grep -q "^admin/src/"; then
-    log "Обнаружены изменения в admin/src/. Собираем build admin..."
+for entry in "${APP_LIST[@]}"; do
+    app_dir="${entry%%:*}"
+    app_name="${entry##*:}"
 
-    cd "$PROJECT_DIR/admin"
-    if npm run build 2>&1 >> "$LOG_FILE"; then
-        log_success "Build admin: успешно"
-    else
-        log_error "Build admin: ошибка!"
+    if [ -f "$app_dir/package.json" ]; then
+        build_frontend "$app_dir" "$app_name"
     fi
-
-    cd "$PROJECT_DIR"
-else
-    log "Изменений в admin/src/ нет. Пропускаем build admin."
-fi
-
-# --- Шаг 5: проверяем frontend (site/src) ---
-
-if echo "$CHANGED_FILES" | grep -q "^site/src/"; then
-    log "Обнаружены изменения в site/src/. Собираем build site..."
-
-    cd "$PROJECT_DIR/site"
-    if npm run build 2>&1 >> "$LOG_FILE"; then
-        log_success "Build site: успешно"
-    else
-        log_error "Build site: ошибка!"
-    fi
-
-    cd "$PROJECT_DIR"
-else
-    log "Изменений в site/src/ нет. Пропускаем build site."
-fi
+done
 
 log_success "Деплой завершён."

@@ -4,6 +4,9 @@
 # ollama.sh — установка Ollama и модели gemma3:1b
 # ============================================================
 
+MODULE_TITLE="Ollama + gemma3:1b"
+MODULE_FUNC="setup_ollama"
+
 OLLAMA_VERSION="0.5.13"
 
 install_ollama() {

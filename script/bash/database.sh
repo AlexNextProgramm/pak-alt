@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="База данных и .env"
+MODULE_FUNC="setup_database"
+
 mysql_is_available() {
     command_exists mysql && mysql_service_running
 }

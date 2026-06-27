@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Nginx (конфиг проекта)"
+MODULE_FUNC="configure_nginx_site"
+
 prompt_nginx_server_name() {
     if [ -n "${NGINX_SERVER_NAME:-}" ]; then
         log "server_name: $NGINX_SERVER_NAME (из NGINX_SERVER_NAME)"

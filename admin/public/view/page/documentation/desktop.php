@@ -300,6 +300,23 @@ cron_report (журнал запуска)</code></pre>
 
     <h3>Как настроить загрузку файлов из почты?</h3>
     <p>Заполните переменные <code>imap.*</code>, добавьте email компаний, примените миграции и настройте crontab. Подробнее — раздел <strong>7. Cron — загрузка вложений из почты</strong>.</p>
+        <h2>8. Парсинг Excel‑файлов</h2>
+        <p><strong>Суть:</strong> Обработка вложений‑таблиц, полученных из писем компаний, и импорт данных о застрахованных.</p>
+        <ul>
+            <li>Детерминированный парсер <code>Module\Ai\InsuredParser</code> (<a href="service/Module/Ai/InsuredParser.php" target="_blank">service/Module/Ai/InsuredParser.php</a>) читает Excel‑файлы, определяет тип операции (прикрепление/открепление) и возвращает массив записей.</li>
+            <li>Для выгрузок «ALL» от АльфаСтрахования используется специализированный парсер <code>Module\Ai\AlphaAllExportParser</code> (<a href="service/Module/Ai/AlphaAllExportParser.php" target="_blank">service/Module/Ai/AlphaAllExportParser.php</a>).</li>
+            <li>Если требуется более гибкая обработка, задействуется AI‑пакет <code>ai/index.js</code> (<a href="ai/index.js" target="_blank">ai/index.js</a>) через Node.js. Конфигурация парсера хранится в <code>ai/mamp/parse-insured.json</code> (<a href="ai/mamp/parse-insured.json" target="_blank">ai/mamp/parse-insured.json</a>).</li>
+            <li>Ключевые настройки (колонки, типы дат, ключевые слова) задаются в файле конфигурации и могут быть переопределены переменной <code>ai.parse_config</code> в таблице <code>variable</code>.</li>
+            <li>Результат парсинга передаётся в <code>Module\Cron\ZastrakhovannyeImporter</code> (<a href="service/Module/Cron/ZastrakhovannyeImporter.php" target="_blank">service/Module/Cron/ZastrakhovannyeImporter.php</a>) для сохранения в таблицу <code>zastrakhovannye</code>.</li>
+        </ul>
+        <p>Подробный алгоритм парсинга:</p>
+        <ol>
+            <li>Файл сохраняется в <code>var/uploads/download/{email}/</code>.</li>
+            <li>Определяется, является ли файл выгрузкой «ALL» (проверка заголовков). Если да – используется <code>AlphaAllExportParser</code>.</li>
+            <li>Иначе – вызывается <code>InsuredParser::parseFile()</code>, который при необходимости делегирует работу Node‑скрипту.</li>
+            <li>Полученный массив записей проходит валидацию (проверка ФИО, даты, полиса) и импортируется в БД.</li>
+            <li>Ошибки импорта сохраняются в журнал <code>cron_report.errors</code> и в поле <code>exception</code> таблицы <code>upload_file</code>.</li>
+        </ol>
         </article>
     </div>
 </div>

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Симлинк /var/www"
+MODULE_FUNC="install_symlink"
+
 install_symlink() {
     log "Проверка симлинка $WWW_LINK..."
 

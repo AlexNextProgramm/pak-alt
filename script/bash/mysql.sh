@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="MySQL 8.0"
+MODULE_FUNC="install_mysql"
+
 mysql_service_running() {
     systemctl is-active --quiet mysql 2>/dev/null
 }

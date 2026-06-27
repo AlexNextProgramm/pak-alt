@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Зависимости и миграции"
+MODULE_FUNC="process_app_dependencies"
+
 install_composer_deps() {
     local app_dir="$1"
     local app_name="$2"

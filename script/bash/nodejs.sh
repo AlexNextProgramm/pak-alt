@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODULE_TITLE="Node.js"
+MODULE_FUNC="install_nodejs"
+
 install_nodejs() {
     if command_exists node || command_exists nodejs; then
         local node_version
