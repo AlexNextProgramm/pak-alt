@@ -47,11 +47,8 @@ fi
 log "=== Начало установки проекта ($PROJECT_NAME) ==="
 log "PROJECT_DIR=$PROJECT_DIR"
 
-for module_sh in "$SCRIPT_DIR"/*.sh; do
-    module_name="$(basename "$module_sh")"
-    case "$module_name" in
-        lib.sh|cli.sh) continue ;;
-    esac
+for module_sh in "$SCRIPT_DIR"/[0-9]*.sh; do
+    [ -f "$module_sh" ] || continue
 
     MODULE_TITLE=""
     MODULE_FUNC=""

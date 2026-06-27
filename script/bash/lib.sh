@@ -207,23 +207,24 @@ print_install_help() {
 Использование:
   ./install.sh              интерактивная установка (вопрос перед каждым модулем)
   ./install.sh -m <модуль>  установить только указанный модуль
+  ./install.sh ls           список модулей
   ./install.sh -h           справка
 
-Модули (-m):
-  symlink      симлинк /var/www/<проект>
-  apt          обновление списка пакетов
-  nginx        пакет nginx
-  mysql        MySQL 8.0 (mysql-server-8.0)
-  php          PHP-FPM и расширения
-  nodejs       Node.js и npm
-  git          Git (система контроля версий)
-  nginx-site   конфиг nginx для проекта
-  database     база данных и .env (алиас: db)
-  deps         composer, npm, миграции
-  github       настройка SSH-ключей для GitHub
-  permissions  права на assets (алиас: perms)
-  ollama       Ollama + модель gemma3:1b
-  finish       итоговый вывод
+Порядок выполнения модулей:
+   1. symlink      симлинк /var/www/<проект>
+   2. apt          обновление списка пакетов
+   3. nginx        пакет nginx
+   4. mysql        MySQL 8.0 (mysql-server-8.0)
+   5. php          PHP-FPM и расширения
+   6. nodejs       Node.js и npm
+   7. git          Git (система контроля версий)
+   8. nginx-site   конфиг nginx для проекта
+   9. database     база данных и .env (алиас: db)
+  10. deps         composer, npm, миграции
+  11. permissions  права на assets (алиас: perms)
+  12. github       настройка SSH-ключей для GitHub
+  13. ollama       Ollama + модель gemma3:1b
+  14. finish       итоговый вывод
 
 Примеры:
   ./install.sh -m php
@@ -234,13 +235,12 @@ EOF
 
 list_install_modules() {
     local modules=()
-    local module_sh module_name MODULE_TITLE MODULE_FUNC
+    local module_sh module_name module_key MODULE_TITLE MODULE_FUNC
 
-    for module_sh in "$SCRIPT_DIR"/*.sh; do
+    for module_sh in "$SCRIPT_DIR"/[0-9]*.sh; do
         module_name="$(basename "$module_sh")"
-        case "$module_name" in
-            lib.sh|cli.sh) continue ;;
-        esac
+        module_key="${module_name#*.}"
+        module_key="${module_key%.sh}"
 
         MODULE_TITLE=""
         MODULE_FUNC=""
@@ -249,12 +249,12 @@ list_install_modules() {
         source "$module_sh"
 
         if [ -n "$MODULE_TITLE" ] && [ -n "$MODULE_FUNC" ]; then
-            modules+=("${module_name%.sh}")
+            modules+=("$module_key")
         fi
     done
 
     echo ""
-    echo "Доступные модули install.sh:"
+    echo "Доступные модули install.sh (в порядке выполнения):"
     echo ""
 
     for mod in "${modules[@]}"; do
@@ -268,13 +268,19 @@ list_install_modules() {
 
 run_install_module() {
     local key="${1,,}"
-    local module_file="$SCRIPT_DIR/${key}.sh"
+    local module_file
 
-    # source модуля, если файл существует (функции объявлены в module/*.sh)
-    if [ -f "$module_file" ]; then
-        # shellcheck source=/dev/null
-        source "$module_file"
+    # Ищем файл по маске [номер]-{key}.sh
+    module_file="$(find "$SCRIPT_DIR" -maxdepth 1 -name "[0-9]*-${key}.sh" -print -quit 2>/dev/null)"
+
+    if [ -z "$module_file" ]; then
+        echo "Неизвестный модуль: $1" >&2
+        echo "Запустите ./install.sh ls для списка доступных модулей." >&2
+        exit 1
     fi
+
+    # shellcheck source=/dev/null
+    source "$module_file"
 
     case "$key" in
         symlink)
@@ -332,11 +338,6 @@ run_install_module() {
         finish|summary)
             log ">>> Модуль: finish"
             print_summary
-            ;;
-        *)
-            echo "Неизвестный модуль: $1" >&2
-            echo "Доступные: symlink apt nginx mysql php nodejs git nginx-site database deps github ollama permissions finish" >&2
-            exit 1
             ;;
     esac
 }
