@@ -25,7 +25,7 @@ configure_nginx_site() {
 
     if ! $HAS_ADMIN && ! $HAS_SITE; then
         log "Ошибка: не найдены каталоги admin/public или site/public в $PROJECT_DIR"
-        exit 1
+        return 1
     fi
 
     prompt_nginx_server_name
@@ -57,6 +57,9 @@ NGINX_ADMIN
 )
     fi
 
+    # PHP-FPM сокет по умолчанию, если не задан
+    local fpm_sock="${PHP_FPM_SOCK:-/var/run/php/php-fpm.sock}"
+
     log "Настройка Nginx ($NGINX_CONF)..."
 
     sudo tee "$NGINX_CONF" > /dev/null <<NGINX_EOF
@@ -72,7 +75,7 @@ ${nginx_admin_block}
     }
 
     location ~ \.php\$ {
-        fastcgi_pass unix:${PHP_FPM_SOCK};
+        fastcgi_pass unix:${fpm_sock};
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
