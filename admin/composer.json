@@ -2,9 +2,10 @@
     "name":"forging/admin",
     "require":{
         "php":">=8.0",
-        "pet/framework":"dev-main",
+        "pet/framework":"^v3.1",
          "phpmailer/phpmailer": "^6.5",
-        "mpdf/mpdf": "^8.2"
+        "mpdf/mpdf": "^8.2",
+        "willybahuaud/gaitcha": "^0.8.0"
     }, 
     "autoload": {
         "psr-4": {

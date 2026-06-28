@@ -1,6 +1,7 @@
 <?php
 
 use App\Controller\AjaxController;
+use App\Controller\GaitchaController;
 use App\Controller\LoginController;
 use App\Controller\ModalController;
 use App\Controller\Page\CompanyController;
@@ -9,29 +10,27 @@ use App\Controller\Page\DocumentationController;
 use App\Controller\Page\AiController;
 use App\Controller\Page\HomeController;
 use App\Controller\Page\MailController;
+use App\Controller\Page\UserController;
 use App\Controller\Page\VariablesController;
 use App\Controller\Page\ZastrakhovannyeController;
 use App\Form\Form;
 use App\Module\Auth;
 use App\Table\Datatable;
-use Pet\Router\Error as RE;
+
 use Pet\Router\Response;
 use Pet\Router\Router;
 use Module\Upload\Storage;
 
-Router::$event = [
-    Form::$action => [Form::class, 'init'],
-    Datatable::$action => [function () {
-        Auth::init();
-        if (!Auth::$isAuth) {
-            RE::setHttp(RE::STATUS_HTTP::FORBIDDEN);
-            Response::die('Нет авторизации');
-        }
-        return (new Datatable())->init(request());
-    }],
-];
+Router::event(Form::$action, [Form::class, 'init']);
+Router::event(Datatable::$action, function () {
+    Auth::init();
+    if (!Auth::$isAuth) Response::json(['error' => 'Нет авторизации'], 403);
+    return (new Datatable())->init(request());
+});
 
 Router::get('/uploads/*', Storage::class);
+
+Router::post('/captcha/init', [GaitchaController::class, 'init']);
 
 Router::middleware(
     [Auth::class, 'init']
@@ -41,6 +40,7 @@ Router::middleware(
     Router::get('/zastrakhovannye', [ZastrakhovannyeController::class, 'index']),
     Router::get('/mail', [MailController::class, 'index']),
     Router::get('/mail/attachment', [MailController::class, 'attachment']),
+    Router::get('/user', [UserController::class, 'index']),
     Router::get('/variables', [VariablesController::class, 'index']),
     Router::get('/cron-report', [CronReportController::class, 'index']),
     Router::get('/ai', [AiController::class, 'index']),

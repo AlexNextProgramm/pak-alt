@@ -3,10 +3,14 @@
 namespace App\Form;
 
 use App\Module\Auth;
+use Gaitcha\ValidationOrchestrator;
+use Module\Gaitcha\GaitchaConfig;
 use Pet\Controller;
 use Pet\Errors\AppException;
 use Pet\Request\Request;
 use Pet\Router\Error as RE;
+use Pet\Router\Header;
+use Pet\Router\HTTP;
 use Pet\Router\Response;
 use Pet\Session\Session;
 use Pet\Tools\Tools;
@@ -28,7 +32,7 @@ class Form extends Controller
         }
         $token = attr('csrf-token');
         unset(Request::$attribute['csrf-token']);
-        Response::set(Response::TYPE_JSON);
+        Header::json();
         $formClass = new $nameClass();
         if ($formClass->isCheckToken === false) {
             return self::response($formClass, $request);
@@ -36,8 +40,7 @@ class Form extends Controller
         if ($token == Session::get('csrf-token')) {
             return self::response($formClass, $request);
         } else {
-            RE::setHttp(RE::STATUS_HTTP::FORBIDDEN);
-            Response::die("Hе действительный токен csrf или проблема с сессиями на сервере");
+            Response::json(['error' => 'Не действительный токен'], HTTP::FORBIDDEN);
         }
     }
 
@@ -73,6 +76,24 @@ class Form extends Controller
         }
 
         return $token;
+    }
+
+    /**
+     * Валидация Gaitcha (капча).
+     *
+     * Проверяет токен и поведенческие данные из POST.
+     * Возвращает null при успехе или Fire с ошибкой.
+     */
+    final public static function validateGaitcha(): ?\App\Module\UI\Fire
+    {
+        $orchestrator = new ValidationOrchestrator(GaitchaConfig::get());
+        $result = $orchestrator->validate(attrs());
+
+        if (!$result->isAccepted()) {
+            return new \App\Module\UI\Fire('Проверка не пройдена. Попробуйте снова.', \App\Module\UI\Fire::ERROR);
+        }
+
+        return null;
     }
 
     final public static function normalizerFields(): array

@@ -5,7 +5,7 @@ namespace App\Controller\Ajax\Ai;
 use App\Controller\AjaxController;
 use App\Module\Ai\ParseConfig;
 use App\Module\Auth;
-use Pet\Router\Error as RE;
+use Pet\Router\HTTP;
 use Pet\Router\Response;
 
 class ResetConfig extends AjaxController
@@ -14,8 +14,7 @@ class ResetConfig extends AjaxController
     {
         Auth::init();
         if (!Auth::$isAuth) {
-            RE::setHttp(RE::STATUS_HTTP::FORBIDDEN);
-            Response::die('Нет авторизации');
+            Response::json(['error' => 'Нет авторизации'], HTTP::FORBIDDEN);
         }
 
         ParseConfig::deleteUploadFile();

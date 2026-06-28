@@ -55,6 +55,31 @@
                 margin-bottom: 5px;
             }
         }
+
+        #gaitcha-container-login {
+            width: 100%;
+        }
+
+        .gaitcha-widget__brand {
+            display: none !important;
+        }
+
+        .gaitcha-widget__label {
+            visibility: hidden;
+            font-size: 0 !important;
+
+            &::after {
+                visibility: visible;
+                font-size: 14px;
+                content: 'Я не робот';
+                color: var(--g-sub, #8a9099);
+                white-space: nowrap;
+            }
+        }
+
+        .gaitcha-widget--checked .gaitcha-widget__label::after {
+            color: var(--g-success-text, #15803d);
+        }
     }
 }
 @media screen and (max-width: 850px) {

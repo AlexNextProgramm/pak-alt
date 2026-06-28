@@ -22,7 +22,7 @@ use App\Form\Form;
                 </div>
             </div>
 
-            <form name="Ai/Parse" csrf-token="<?= Form::csrf(true) ?>" class="page-ai__form" enctype="multipart/form-data">
+            <form csrf-token="<?= Form::csrf(true) ?>" class="page-ai__form" enctype="multipart/form-data">
                 <div class="page-ai__form-row">
                     <div ui="file-upload" class="page-ai__file-wrap">
                         <input type="file" name="file" id="ai-file-input" accept=".xlsx,.xls,.csv" class="page-ai__file-input" required>

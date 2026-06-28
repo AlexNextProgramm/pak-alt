@@ -4,22 +4,12 @@ namespace App\Controller\Ajax\Mail;
 
 use App\Controller\AjaxController;
 use Module\Imap\Client;
-use Pet\Request\Request;
-use Pet\Router\Error as RE;
-use Pet\Router\Response;
-use Pet\Session\Session;
 
 class View extends AjaxController
 {
     public function helper(): array
     {
-        $token = attr('csrf-token');
-        unset(Request::$attribute['csrf-token']);
-
-        if ($token != Session::get('csrf-token')) {
-            RE::setHttp(RE::STATUS_HTTP::FORBIDDEN);
-            Response::die('Не действительный токен csrf или проблема с сессиями на сервере');
-        }
+        AjaxController::checkCsrf();
 
         $uid = (int)(attrs()['uid'] ?? 0);
         if ($uid <= 0) {

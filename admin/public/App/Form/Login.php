@@ -13,6 +13,11 @@ class Login extends Form
 {
     public function submit(Request $request)
     {
+        $gaitchaError = Form::validateGaitcha();
+        if ($gaitchaError !== null) {
+            return $gaitchaError;
+        }
+
         $fields = attrs();
         foreach ($fields as $k => $field) {
             if (empty($field)) {

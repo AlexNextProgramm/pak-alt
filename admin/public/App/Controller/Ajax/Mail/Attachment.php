@@ -4,10 +4,8 @@ namespace App\Controller\Ajax\Mail;
 
 use App\Controller\AjaxController;
 use Module\Imap\Client;
-use Pet\Request\Request;
-use Pet\Router\Error as RE;
+use Pet\Router\HTTP;
 use Pet\Router\Response;
-use Pet\Session\Session;
 
 class Attachment extends AjaxController
 {
@@ -17,13 +15,7 @@ class Attachment extends AjaxController
 
     public function helper(): void
     {
-        $token = attr('csrf-token');
-        unset(Request::$attribute['csrf-token']);
-
-        if ($token != Session::get('csrf-token')) {
-            RE::setHttp(RE::STATUS_HTTP::FORBIDDEN);
-            Response::die('Не действительный токен csrf или проблема с сессиями на сервере');
-        }
+        AjaxController::checkCsrf();
 
         $uid = (int)(attrs()['uid'] ?? 0);
         $part = (string)(attrs()['part'] ?? '');
@@ -31,8 +23,7 @@ class Attachment extends AjaxController
         $mime = (string)(attrs()['mime'] ?? 'application/octet-stream');
 
         if ($uid <= 0 || $part === '' || !preg_match('/^[0-9]+(?:\.[0-9]+)*$/', $part)) {
-            RE::setHttp(RE::STATUS_HTTP::BAD_REQUEST);
-            Response::die('Некорректные параметры');
+            Response::json(['error' => 'Некорректные параметры'], HTTP::BAD_REQUEST);
         }
 
         $filename = basename(str_replace(["\0", '/', '\\'], '', $filename));
@@ -44,8 +35,7 @@ class Attachment extends AjaxController
         $result = $client->getAttachment($uid, $part, keepUnread: true);
 
         if (!$result['success']) {
-            RE::setHttp(RE::STATUS_HTTP::NOT_FOUND);
-            Response::die($result['error'] ?? 'Не удалось получить вложение');
+            Response::json(['error' => $result['error'] ?? 'Не удалось получить вложение'], HTTP::NOT_FOUND);
         }
 
         $content = $result['content'];
@@ -56,6 +46,7 @@ class Attachment extends AjaxController
         header('Content-Length: ' . strlen($content));
         header('Cache-Control: no-store');
 
-        Response::die($content);
+        echo $content;
+        exit;
     }
 }

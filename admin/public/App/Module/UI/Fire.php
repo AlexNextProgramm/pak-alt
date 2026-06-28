@@ -21,7 +21,6 @@ class Fire
     }
     public static function response($text = '', string $status = self::SUCCESS): void
     {
-        Response::set(Response::TYPE_JSON);
-        Response::die(new Fire($text, $status));
+        Response::json(new Fire($text, $status));
     }
 }

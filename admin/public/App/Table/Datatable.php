@@ -6,7 +6,7 @@ use Model\Table;
 use Pet\Errors\AppException;
 use Pet\Model\Model;
 use Pet\Request\Request;
-use Pet\Router\Response;
+use Pet\Router\Header;
 use Pet\Tools\Tools;
 
 
@@ -43,7 +43,7 @@ class Datatable
 
         // Проверяем, есть ли ошибка IMAP в модели
         if (property_exists($this->model, 'imapError') && $this->model->imapError !== null) {
-            Response::set(Response::TYPE_JSON);
+            Header::json();
             return [
                 'item' => [],
                 'pages' => ['all' => 0],
@@ -56,7 +56,7 @@ class Datatable
         }
 
         $this->model->behind($this->result['item']);
-        Response::set(Response::TYPE_JSON);
+        Header::json();
 
         return $this->result;
     }
