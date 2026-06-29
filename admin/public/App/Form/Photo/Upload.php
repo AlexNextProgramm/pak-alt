@@ -27,8 +27,8 @@ class Upload extends Form
             return new Fire('Некорректные параметры', Fire::ERROR);
         }
 
-        $file = files('file');
-        if (empty($file) || !is_array($file)) {
+        $file = request()->allFiles()['file'] ?? null;
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             return new Fire('Файл не получен', Fire::ERROR);
         }
 
