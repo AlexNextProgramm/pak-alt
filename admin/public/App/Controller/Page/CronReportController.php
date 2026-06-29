@@ -3,6 +3,7 @@
 namespace App\Controller\Page;
 
 use App\Controller\PageController;
+use App\Model\CronReportErrorModel;
 use App\Model\CronReportModel;
 use Pet\Request\Request;
 use Pet\Router\Error as RE;
@@ -50,10 +51,11 @@ class CronReportController extends PageController
                 'id' => $id,
                 'started_at' => (string)$model->get('started_at'),
                 'emails_found' => (int)$model->get('emails_found'),
-                'errors' => $model->get('errors'),
+                'errors_count' => CronReportErrorModel::countByReportIds([$id])[$id] ?? 0,
                 'status' => $status,
                 'status_label' => $statusLabels[$status] ?? $status,
             ],
+            'errorGroups' => CronReportErrorModel::groupedByReport($id),
         ]);
     }
 }

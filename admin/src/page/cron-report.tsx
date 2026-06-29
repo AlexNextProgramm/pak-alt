@@ -22,13 +22,11 @@ if (page) {
             }
 
             if (alias === 'errors_short') {
-                const errors = row.errors ?? '';
+                const count = Number(row.errors_count ?? 0);
                 const short = row.errors_short ?? '—';
-                if (errors) {
+                if (count > 0) {
                     return (
-                        <td class="page-cron-report__cell page-cron-report__errors" title={String(errors)}>
-                            {String(short)}
-                        </td>
+                        <td class="page-cron-report__cell page-cron-report__errors">{String(short)}</td>
                     );
                 }
                 return <td class="page-cron-report__cell">—</td>;

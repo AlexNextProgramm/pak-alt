@@ -19,8 +19,7 @@ class EmailAttachmentJob
 
     private int $emailsFound = 0;
 
-    /** @var list<string> */
-    private array $errors = [];
+    private ?ReportErrorLogger $errorLogger = null;
 
     public function __construct(?Client $imap = null, ?Storage $storage = null)
     {
@@ -35,9 +34,10 @@ class EmailAttachmentJob
         try {
             $this->loadCompanies();
             $this->processMailbox();
-            $this->finishReport($reportId, $this->errors === [] ? 'success' : 'completed');
+            $status = $this->errorLogger !== null && $this->errorLogger->hasErrors() ? 'completed' : 'success';
+            $this->finishReport($reportId, $status);
         } catch (\Throwable $error) {
-            $this->errors[] = $error->getMessage();
+            $this->errorLogger?->logGlobal($error->getMessage());
             $this->finishReport($reportId, 'error');
         }
 
@@ -51,7 +51,6 @@ class EmailAttachmentJob
         $id = $model->create([
             'started_at' => date('Y-m-d H:i:s'),
             'emails_found' => 0,
-            'errors' => null,
             'status' => 'running',
         ]);
 
@@ -59,7 +58,10 @@ class EmailAttachmentJob
             throw new RuntimeException('Не удалось создать запись cron_report');
         }
 
-        return (int)$id;
+        $reportId = (int)$id;
+        $this->errorLogger = new ReportErrorLogger($reportId);
+
+        return $reportId;
     }
 
     private function finishReport(int $reportId, string $status): void
@@ -72,7 +74,6 @@ class EmailAttachmentJob
 
         $model->set([
             'emails_found' => $this->emailsFound,
-            'errors' => $this->errors === [] ? null : implode("\n", $this->errors),
             'status' => $status,
         ]);
     }
@@ -134,19 +135,19 @@ class EmailAttachmentJob
         $messageResult = $this->imap->getMessage($uid);
 
         if (!$messageResult['success']) {
-            $this->errors[] = sprintf(
-                'UID %d «%s» (%s): %s',
+            $this->errorLogger?->log(
                 $uid,
-                $this->errorSubject(''),
-                $senderEmail,
+                null,
+                null,
                 (string)($messageResult['error'] ?? 'не удалось прочитать письмо'),
+                $senderEmail,
             );
 
             return;
         }
 
         $message = $messageResult['message'];
-        $subject = $this->errorSubject((string)($message['subject'] ?? ''));
+        $subject = (string)($message['subject'] ?? '');
         $attachments = $message['attachments'] ?? [];
 
         if ($attachments === []) {
@@ -177,11 +178,9 @@ class EmailAttachmentJob
         $filename = trim((string)($attachment['filename'] ?? ''));
 
         if ($partNumber === '' || $filename === '') {
-            $this->createUploadRecord(
-                $companyId,
-                null,
-                $this->messageLabel($uid, $subject, $senderEmail) . ': некорректные метаданные вложения',
-            );
+            $message = 'некорректные метаданные вложения';
+            $this->errorLogger?->log($uid, $subject, $filename !== '' ? $filename : null, $message, $senderEmail);
+            $this->createUploadRecord($companyId, null, $this->formatUploadException($uid, $subject, $senderEmail, $message));
 
             return;
         }
@@ -189,11 +188,12 @@ class EmailAttachmentJob
         $attachmentResult = $this->imap->getAttachment($uid, $partNumber);
 
         if (!$attachmentResult['success']) {
+            $message = (string)($attachmentResult['error'] ?? 'не удалось скачать вложение');
+            $this->errorLogger?->log($uid, $subject, $filename, $message, $senderEmail);
             $this->createUploadRecord(
                 $companyId,
                 null,
-                $this->messageLabel($uid, $subject, $senderEmail, 'файл ' . $filename) . ': '
-                . (string)($attachmentResult['error'] ?? 'не удалось скачать вложение'),
+                $this->formatUploadException($uid, $subject, $senderEmail, $message, $filename),
             );
 
             return;
@@ -206,37 +206,36 @@ class EmailAttachmentJob
             $savedPath = $this->storage->saveContent((string)$attachmentResult['content'], $relativePath);
             $this->createUploadRecord($companyId, $savedPath, null);
         } catch (\Throwable $error) {
+            $this->errorLogger?->log($uid, $subject, $filename, $error->getMessage(), $senderEmail);
             $this->createUploadRecord(
                 $companyId,
                 null,
-                $this->messageLabel($uid, $subject, $senderEmail, 'файл ' . $filename) . ': ' . $error->getMessage(),
+                $this->formatUploadException($uid, $subject, $senderEmail, $error->getMessage(), $filename),
             );
         }
     }
 
-    private function messageLabel(int $uid, string $subject, string $senderEmail, ?string $extra = null): string
-    {
-        $label = sprintf('UID %d «%s» (%s)', $uid, $subject, $senderEmail);
+    private function formatUploadException(
+        int $uid,
+        string $subject,
+        string $senderEmail,
+        string $message,
+        ?string $filename = null,
+    ): string {
+        $label = sprintf('UID %d «%s» (%s)', $uid, $this->formatSubject($subject), $senderEmail);
 
-        if ($extra !== null && $extra !== '') {
-            return $label . ', ' . $extra;
+        if ($filename !== null && $filename !== '') {
+            $label .= ', файл ' . $filename;
         }
 
-        return $label;
+        return $label . ': ' . $message;
     }
 
-    private function errorSubject(string $subject): string
+    private function formatSubject(string $subject): string
     {
         $subject = trim(preg_replace('/\s+/u', ' ', $subject) ?? $subject);
-        if ($subject === '') {
-            return '(без темы)';
-        }
 
-        if (mb_strlen($subject) > 100) {
-            return mb_substr($subject, 0, 97) . '...';
-        }
-
-        return $subject;
+        return $subject !== '' ? $subject : '(без темы)';
     }
 
     private function createUploadRecord(int $companyId, ?string $path, ?string $exception): void

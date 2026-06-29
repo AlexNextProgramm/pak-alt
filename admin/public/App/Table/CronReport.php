@@ -2,6 +2,7 @@
 
 namespace App\Table;
 
+use App\Model\CronReportErrorModel;
 use App\Model\CronReportModel;
 
 class CronReport extends CronReportModel implements Itable
@@ -24,8 +25,10 @@ class CronReport extends CronReportModel implements Itable
 
     public function behind(array &$items): void
     {
+        $ids = array_map(static fn(array $row): int => (int)($row['id'] ?? 0), $items);
+        $errorCounts = CronReportErrorModel::countByReportIds($ids);
+
         foreach ($items as &$row) {
-            // Форматируем статус для отображения
             if (isset($row['status'])) {
                 $statusLabels = [
                     'running' => 'Выполняется',
@@ -36,13 +39,26 @@ class CronReport extends CronReportModel implements Itable
                 $row['status_label'] = $statusLabels[$row['status']] ?? $row['status'];
             }
 
-            // Обрезаем ошибки для таблицы
-            if (!empty($row['errors'])) {
-                $row['errors_short'] = mb_substr($row['errors'], 0, 100) . (mb_strlen($row['errors']) > 100 ? '…' : '');
-            } else {
-                $row['errors_short'] = '—';
-            }
+            $count = $errorCounts[(int)($row['id'] ?? 0)] ?? 0;
+            $row['errors_count'] = $count;
+            $row['errors_short'] = $count > 0 ? self::formatErrorCount($count) : '—';
         }
         unset($row);
+    }
+
+    private static function formatErrorCount(int $count): string
+    {
+        $mod10 = $count % 10;
+        $mod100 = $count % 100;
+
+        if ($mod10 === 1 && $mod100 !== 11) {
+            return $count . ' ошибка';
+        }
+
+        if ($mod10 >= 2 && $mod10 <= 4 && ($mod100 < 12 || $mod100 > 14)) {
+            return $count . ' ошибки';
+        }
+
+        return $count . ' ошибок';
     }
 }

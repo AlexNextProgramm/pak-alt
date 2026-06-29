@@ -54,12 +54,54 @@
   }
 
   &__errors {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    cursor: help;
     color: var(--danger-color, #dc3545);
+    font-weight: 600;
+  }
+
+  &__mail-groups {
+    display: grid;
+    gap: 20px;
+  }
+
+  &__mail-group {
+    border: 1px solid rgba(0, 68, 133, 0.12);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  &__mail-head {
+    padding: 14px 16px;
+    background: rgba(0, 68, 133, 0.04);
+    border-bottom: 1px solid rgba(0, 68, 133, 0.08);
+  }
+
+  &__mail-uid {
+    display: inline-block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__mail-subject {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--dark-blue);
+    word-break: break-word;
+  }
+
+  &__mail-from {
+    margin: 0;
+    font-size: 13px;
+    color: var(--gray, #6b7280);
+  }
+
+  &__error-file {
+    font-weight: 600;
+    margin-right: 4px;
   }
 
   &__status {
@@ -169,9 +211,9 @@
 
   &__errors-list {
     margin: 0;
-    padding-left: 24px;
+    padding: 12px 16px 16px 40px;
     display: grid;
-    gap: 10px;
+    gap: 8px;
   }
 
   &__errors-item {

@@ -1,9 +1,9 @@
 <?php
 
 /** @var array<string, mixed> $report */
+/** @var list<array{message_uid: int|null, subject: string|null, sender_email: string|null, items: list<array{filename: string|null, message: string}>}> $errorGroups */
 
-$errors = trim((string)($report['errors'] ?? ''));
-$errorLines = $errors !== '' ? preg_split('/\R/u', $errors) ?: [] : [];
+$errorGroups = $errorGroups ?? [];
 ?>
 
 <div class="page-cron-report page-cron-report--view">
@@ -23,6 +23,10 @@ $errorLines = $errors !== '' ? preg_split('/\R/u', $errors) ?: [] : [];
                 <dd><?= (int)($report['emails_found'] ?? 0) ?></dd>
             </div>
             <div class="page-cron-report__meta-row">
+                <dt>Ошибок</dt>
+                <dd><?= (int)($report['errors_count'] ?? 0) ?></dd>
+            </div>
+            <div class="page-cron-report__meta-row">
                 <dt>Статус</dt>
                 <dd>
                     <span class="page-cron-report__status page-cron-report__status--<?= htmlspecialchars((string)($report['status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -34,18 +38,39 @@ $errorLines = $errors !== '' ? preg_split('/\R/u', $errors) ?: [] : [];
     </section>
 
     <section class="page-cron-report__section">
-        <h2 class="page-cron-report__subtitle">Ошибки</h2>
-        <?php if ($errorLines === []): ?>
+        <h2 class="page-cron-report__subtitle">Ошибки по письмам</h2>
+        <?php if ($errorGroups === []): ?>
             <p class="page-cron-report__hint">Ошибок нет.</p>
         <?php else: ?>
-            <ol class="page-cron-report__errors-list">
-                <?php foreach ($errorLines as $line): ?>
-                    <?php if (trim((string)$line) === '') {
-                        continue;
-                    } ?>
-                    <li class="page-cron-report__errors-item"><?= htmlspecialchars((string)$line, ENT_QUOTES, 'UTF-8') ?></li>
+            <div class="page-cron-report__mail-groups">
+                <?php foreach ($errorGroups as $group): ?>
+                    <article class="page-cron-report__mail-group">
+                        <header class="page-cron-report__mail-head">
+                            <?php if (!empty($group['message_uid'])): ?>
+                                <span class="page-cron-report__mail-uid">UID <?= (int)$group['message_uid'] ?></span>
+                            <?php else: ?>
+                                <span class="page-cron-report__mail-uid">Общие ошибки</span>
+                            <?php endif; ?>
+                            <?php if (!empty($group['subject'])): ?>
+                                <h3 class="page-cron-report__mail-subject"><?= htmlspecialchars((string)$group['subject'], ENT_QUOTES, 'UTF-8') ?></h3>
+                            <?php endif; ?>
+                            <?php if (!empty($group['sender_email'])): ?>
+                                <p class="page-cron-report__mail-from"><?= htmlspecialchars((string)$group['sender_email'], ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php endif; ?>
+                        </header>
+                        <ol class="page-cron-report__errors-list">
+                            <?php foreach ($group['items'] as $item): ?>
+                                <li class="page-cron-report__errors-item">
+                                    <?php if (!empty($item['filename'])): ?>
+                                        <span class="page-cron-report__error-file"><?= htmlspecialchars((string)$item['filename'], ENT_QUOTES, 'UTF-8') ?>:</span>
+                                    <?php endif; ?>
+                                    <?= htmlspecialchars((string)($item['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </article>
                 <?php endforeach; ?>
-            </ol>
+            </div>
         <?php endif; ?>
     </section>
 </div>
