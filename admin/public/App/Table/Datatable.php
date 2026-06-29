@@ -31,7 +31,8 @@ class Datatable
     final public function init(Request $request):array
     {
         $nameTable = str_replace(".", "\\", $request->header[self::$action]);
-        $nameTable = ucfirst($nameTable);
+        // Преобразуем snake_case в CamelCase: cron_report → CronReport
+        $nameTable = str_replace('_', '', ucwords($nameTable, '_'));
         $nameClass = $this->namespace.$nameTable;
 
         if (!class_exists($nameClass)) {
