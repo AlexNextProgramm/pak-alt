@@ -109,25 +109,33 @@ class Form extends Controller
         return $result;
     }
 
-    final public static function validatePassword($password):string|false
-    {
-        if (strlen($password) < 8) {
-            return "Пароль должен содержать не менее 8 символов.";
+    final public static function validatePassword(string $password, $param = [
+        'len' => 8,
+        'isInt' => true,
+        'UpperCase' => true,
+        'LoverCase' => true,
+        'isSimbol' => true
+    ]): string|false {
+        if ($password === '') {
+            return 'Пароль обязателен при создании';
+        }
+        if (strlen($password) < $param['len']) {
+            return "Пароль должен содержать не менее " . $param['len'] . " символов.";
         }
 
-        if (!preg_match('/\d/', $password)) {
+        if (!preg_match('/\d/', $password) && $param['isInt']) {
             return "Пароль должен содержать хотя бы одну цифру.";
         }
 
-        if (!preg_match('/[A-Z]/', $password)) {
+        if (!preg_match('/[A-Z]/', $password) && $param['UpperCase']) {
             return "Пароль должен содержать хотя бы одну заглавную букву.";
         }
 
-        if (!preg_match('/[a-z]/', $password)) {
+        if (!preg_match('/[a-z]/', $password) && $param['LoverCase']) {
             return "Пароль должен содержать хотя бы одну строчную букву.";
         }
 
-        if (!preg_match('/[\W_]/', $password)) {
+        if (!preg_match('/[\W_]/', $password) && $param['isSimbol']) {
             return "Пароль должен содержать хотя бы один специальный символ.";
         }
         return false;
