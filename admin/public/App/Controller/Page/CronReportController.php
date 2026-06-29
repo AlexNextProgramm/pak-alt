@@ -55,6 +55,7 @@ class CronReportController extends PageController
                 'status' => $status,
                 'status_label' => $statusLabels[$status] ?? $status,
             ],
+            'statusLabels' => $statusLabels,
             'errorGroups' => CronReportErrorModel::groupedByReport($id),
         ]);
     }

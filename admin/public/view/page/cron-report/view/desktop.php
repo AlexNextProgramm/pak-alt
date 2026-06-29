@@ -1,9 +1,14 @@
 <?php
 
+use App\Form\Form;
+
 /** @var array<string, mixed> $report */
+/** @var array<string, string> $statusLabels */
 /** @var list<array{message_uid: int|null, subject: string|null, sender_email: string|null, items: list<array{filename: string|null, message: string}>}> $errorGroups */
 
 $errorGroups = $errorGroups ?? [];
+$statusLabels = $statusLabels ?? [];
+$isRunning = ($report['status'] ?? '') === 'running';
 ?>
 
 <div class="page-cron-report page-cron-report--view">
@@ -35,6 +40,30 @@ $errorGroups = $errorGroups ?? [];
                 </dd>
             </div>
         </dl>
+    </section>
+
+    <?php if ($isRunning): ?>
+        <div class="page-cron-report__alert">
+            Запуск завис в статусе «Выполняется» — вероятно, крон завершился аварийно. Измените статус вручную, чтобы закрыть запись.
+        </div>
+    <?php endif; ?>
+
+    <section class="page-cron-report__section page-cron-report__status-form">
+        <h2 class="page-cron-report__subtitle">Изменить статус</h2>
+        <p class="page-cron-report__hint">Используйте, если запуск остался в «Выполняется» после сбоя или нужно исправить статус вручную.</p>
+        <form name="CronReport/UpdateStatus" csrf-token="<?= Form::csrf(true) ?>" class="page-cron-report__form">
+            <input type="hidden" name="id" value="<?= (int)($report['id'] ?? 0) ?>">
+            <div class="page-cron-report__form-row">
+                <select name="status" class="page-cron-report__status-select">
+                    <?php foreach ($statusLabels as $value => $label): ?>
+                        <option value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>" <?= ($report['status'] ?? '') === $value ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="btn btn-submit-blue">Сохранить статус</button>
+            </div>
+        </form>
     </section>
 
     <section class="page-cron-report__section">
