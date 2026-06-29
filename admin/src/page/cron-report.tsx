@@ -50,10 +50,21 @@ if (page) {
 
         table.buildRows = (row: any, cells: any[]) => {
             return (
-                <tr data-id={String(row.id)}>
+                <tr data-id={String(row.id)} class="page-cron-report__row--clickable">
                     {...cells}
                 </tr>
             );
+        };
+
+        table.initCallback = () => {
+            table.table.querySelectorAll('tbody tr[data-id]').forEach((row) => {
+                row.addEventListener('click', () => {
+                    const id = row.getAttribute('data-id');
+                    if (id) {
+                        location.href = `/cron-report/view?id=${id}`;
+                    }
+                });
+            });
         };
     }
 }

@@ -29,6 +29,9 @@ class EmailParseJob
     /** @var list<string> */
     private array $errors = [];
 
+    /** @var array<int, string> */
+    private array $messageSubjects = [];
+
     /** @var list<string> */
     private array $savedParseFiles = [];
 
@@ -168,7 +171,7 @@ class EmailParseJob
             try {
                 $this->processMessage($uid);
             } catch (\Throwable $error) {
-                $this->errors[] = sprintf('UID %d: %s', $uid, $this->shortError($error->getMessage()));
+                $this->errors[] = $this->messageLabel($uid) . ': ' . $this->shortError($error->getMessage());
                 $this->debug(sprintf('message UID %d: unhandled error, moving to completed', $uid));
                 $this->moveMessageSafe($uid, self::FOLDER_COMPLETED);
             }
@@ -198,13 +201,14 @@ class EmailParseJob
     {
         $messageResult = $this->imap->getMessage($uid, null, true);
         if (!$messageResult['success']) {
-            $this->errors[] = sprintf('UID %d: %s', $uid, (string)($messageResult['error'] ?? 'не удалось прочитать письмо'));
+            $this->errors[] = $this->messageLabel($uid) . ': ' . (string)($messageResult['error'] ?? 'не удалось прочитать письмо');
             $this->moveMessageSafe($uid, self::FOLDER_COMPLETED);
 
             return;
         }
 
         $message = $messageResult['message'];
+        $this->messageSubjects[$uid] = $this->errorSubject((string)($message['subject'] ?? ''));
         $attachments = $message['attachments'] ?? [];
         $this->emailsFound++;
 
@@ -240,7 +244,7 @@ class EmailParseJob
         ));
 
         if ($excelAttachments === []) {
-            $this->errors[] = sprintf('UID %d: нет подходящей таблицы для импорта', $uid);
+            $this->errors[] = $this->messageLabel($uid) . ': нет подходящей таблицы для импорта';
             $this->debug(sprintf('message UID %d: move to %s (no matching excel)', $uid, self::FOLDER_COMPLETED));
             $this->moveMessageSafe($uid, self::FOLDER_COMPLETED);
 
@@ -266,12 +270,7 @@ class EmailParseJob
             } catch (\Throwable $error) {
                 $hasError = true;
                 $filename = (string)($attachment['filename'] ?? 'file');
-                $this->errors[] = sprintf(
-                    'UID %d, файл %s: %s',
-                    $uid,
-                    $filename,
-                    $this->shortError($error->getMessage()),
-                );
+                $this->errors[] = $this->messageLabel($uid, 'файл ' . $filename) . ': ' . $this->shortError($error->getMessage());
             }
         }
 
@@ -327,12 +326,7 @@ class EmailParseJob
         ));
 
         foreach ($importResult['errors'] as $rowError) {
-            $this->errors[] = sprintf(
-                'UID %d, файл %s: %s',
-                $uid,
-                $filename,
-                $this->shortError($rowError),
-            );
+            $this->errors[] = $this->messageLabel($uid, 'файл ' . $filename) . ': ' . $this->shortError($rowError);
         }
 
         if ($importResult['imported'] === 0) {
@@ -506,12 +500,39 @@ class EmailParseJob
             return;
         }
 
-        $this->errors[] = sprintf(
-            'UID %d: не удалось переместить письмо в %s (%s)',
-            $uid,
+        $this->errors[] = $this->messageLabel($uid) . sprintf(
+            ': не удалось переместить письмо в %s (%s)',
             $targetFolder,
             (string)($moveResult['error'] ?? 'неизвестная ошибка'),
         );
+    }
+
+    private function messageLabel(int $uid, ?string $extra = null): string
+    {
+        $subject = $this->messageSubjects[$uid] ?? null;
+        $label = $subject !== null
+            ? sprintf('UID %d «%s»', $uid, $subject)
+            : sprintf('UID %d', $uid);
+
+        if ($extra !== null && $extra !== '') {
+            return $label . ', ' . $extra;
+        }
+
+        return $label;
+    }
+
+    private function errorSubject(string $subject): string
+    {
+        $subject = trim(preg_replace('/\s+/u', ' ', $subject) ?? $subject);
+        if ($subject === '') {
+            return '(без темы)';
+        }
+
+        if (mb_strlen($subject) > 100) {
+            return mb_substr($subject, 0, 97) . '...';
+        }
+
+        return $subject;
     }
 
     private function debug(string $message): void

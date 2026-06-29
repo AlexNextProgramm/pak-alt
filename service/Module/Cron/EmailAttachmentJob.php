@@ -135,8 +135,9 @@ class EmailAttachmentJob
 
         if (!$messageResult['success']) {
             $this->errors[] = sprintf(
-                'UID %d (%s): %s',
+                'UID %d «%s» (%s): %s',
                 $uid,
+                $this->errorSubject(''),
                 $senderEmail,
                 (string)($messageResult['error'] ?? 'не удалось прочитать письмо'),
             );
@@ -144,7 +145,9 @@ class EmailAttachmentJob
             return;
         }
 
-        $attachments = $messageResult['message']['attachments'] ?? [];
+        $message = $messageResult['message'];
+        $subject = $this->errorSubject((string)($message['subject'] ?? ''));
+        $attachments = $message['attachments'] ?? [];
 
         if ($attachments === []) {
             return;
@@ -153,7 +156,7 @@ class EmailAttachmentJob
         $downloadDir = 'download/' . $this->emailDirName($senderEmail);
 
         foreach ($attachments as $attachment) {
-            $this->saveAttachment($uid, $companyId, $senderEmail, $downloadDir, $attachment);
+            $this->saveAttachment($uid, $companyId, $senderEmail, $subject, $downloadDir, $attachment);
         }
 
         $this->imap->markAsRead($uid);
@@ -166,6 +169,7 @@ class EmailAttachmentJob
         int $uid,
         int $companyId,
         string $senderEmail,
+        string $subject,
         string $downloadDir,
         array $attachment,
     ): void {
@@ -176,7 +180,7 @@ class EmailAttachmentJob
             $this->createUploadRecord(
                 $companyId,
                 null,
-                sprintf('UID %d (%s): некорректные метаданные вложения', $uid, $senderEmail),
+                $this->messageLabel($uid, $subject, $senderEmail) . ': некорректные метаданные вложения',
             );
 
             return;
@@ -188,13 +192,8 @@ class EmailAttachmentJob
             $this->createUploadRecord(
                 $companyId,
                 null,
-                sprintf(
-                    'UID %d (%s), файл %s: %s',
-                    $uid,
-                    $senderEmail,
-                    $filename,
-                    (string)($attachmentResult['error'] ?? 'не удалось скачать вложение'),
-                ),
+                $this->messageLabel($uid, $subject, $senderEmail, 'файл ' . $filename) . ': '
+                . (string)($attachmentResult['error'] ?? 'не удалось скачать вложение'),
             );
 
             return;
@@ -210,15 +209,34 @@ class EmailAttachmentJob
             $this->createUploadRecord(
                 $companyId,
                 null,
-                sprintf(
-                    'UID %d (%s), файл %s: %s',
-                    $uid,
-                    $senderEmail,
-                    $filename,
-                    $error->getMessage(),
-                ),
+                $this->messageLabel($uid, $subject, $senderEmail, 'файл ' . $filename) . ': ' . $error->getMessage(),
             );
         }
+    }
+
+    private function messageLabel(int $uid, string $subject, string $senderEmail, ?string $extra = null): string
+    {
+        $label = sprintf('UID %d «%s» (%s)', $uid, $subject, $senderEmail);
+
+        if ($extra !== null && $extra !== '') {
+            return $label . ', ' . $extra;
+        }
+
+        return $label;
+    }
+
+    private function errorSubject(string $subject): string
+    {
+        $subject = trim(preg_replace('/\s+/u', ' ', $subject) ?? $subject);
+        if ($subject === '') {
+            return '(без темы)';
+        }
+
+        if (mb_strlen($subject) > 100) {
+            return mb_substr($subject, 0, 97) . '...';
+        }
+
+        return $subject;
     }
 
     private function createUploadRecord(int $companyId, ?string $path, ?string $exception): void

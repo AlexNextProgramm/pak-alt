@@ -43,6 +43,7 @@ Router::middleware(
     Router::get('/user', [UserController::class, 'index']),
     Router::get('/variables', [VariablesController::class, 'index']),
     Router::get('/cron-report', [CronReportController::class, 'index']),
+    Router::get('/cron-report/view', [CronReportController::class, 'view']),
     Router::get('/ai', [AiController::class, 'index']),
     Router::get('/documentation', [DocumentationController::class, 'index']),
     Router::get('/login', [LoginController::class, 'index']),
