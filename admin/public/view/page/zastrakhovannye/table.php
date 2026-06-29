@@ -6,7 +6,7 @@
         </div>
     </div>
 
-    <table name="zastrakhovannye" limit="500">
+    <table name="zastrakhovannye" limit="10" pagination="1" infoFooter="1" statusInfo="1" limitInfo="1" scrolling="1">
         <thead>
             <tr name="column">
                 <th alias="id">ID</th>

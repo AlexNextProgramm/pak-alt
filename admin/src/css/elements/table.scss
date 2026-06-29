@@ -3,6 +3,18 @@
     flex-direction: column;
     width: 100%;
 
+    .datatable-wrapper-scrolling {
+        overflow-x: auto;
+        width: 100%;
+        max-width: 100%;
+        -webkit-overflow-scrolling: touch;
+
+        table {
+            width: max-content;
+            min-width: 100%;
+        }
+    }
+
     .info-footer-table {
         width: 100%;
         padding: 0;

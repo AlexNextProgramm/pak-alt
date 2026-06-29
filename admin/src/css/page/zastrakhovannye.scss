@@ -82,11 +82,7 @@
 
   .datatable-wrapper {
     width: 100%;
-
-    table {
-      width: 100%;
-      table-layout: auto;
-    }
+    max-width: 100%;
   }
 
   table {
